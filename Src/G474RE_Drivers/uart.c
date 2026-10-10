@@ -1,0 +1,69 @@
+#include <stdint.h>
+#define STM32G474xx
+#include "stm32g4xx.h"
+
+void UART_Init(void)
+{
+    // 1. Enable peripheral clocks
+    RCC->AHB2ENR |= RCC_AHB2ENR_GPIOCEN;
+    RCC->APB1ENR1 |= RCC_APB1ENR1_USART3EN;
+
+    // Route HSI16 clock to USART3
+    RCC->CCIPR &= ~RCC_CCIPR_USART3SEL;
+    RCC->CCIPR |= (2U << RCC_CCIPR_USART3SEL_Pos);
+
+    // 2. Configure PC10 (TX) and PC11 (RX)
+    GPIOC->MODER &= ~(GPIO_MODER_MODE10 | GPIO_MODER_MODE11);
+    GPIOC->MODER |= (GPIO_MODER_MODE10_1 | GPIO_MODER_MODE11_1);
+
+    // Route Alternate Function 7 (AF7) to PC10 and PC11
+    GPIOC->AFR[1] &= ~(
+        GPIO_AFRH_AFSEL10 |
+        GPIO_AFRH_AFSEL11
+    );
+
+    GPIOC->AFR[1] |= (
+        (7U << GPIO_AFRH_AFSEL10_Pos) |
+        (7U << GPIO_AFRH_AFSEL11_Pos)
+    );
+
+    // 3. Configure USART3
+    USART3->CR1 &= ~USART_CR1_UE;  // Turn off to allow configuration
+
+    // Set baud rate to 115200 assuming 16 MHz clock
+    USART3->BRR = 139;
+
+    // Enable Transmitter (TE) and Receiver (RE)
+    USART3->CR1 |= USART_CR1_TE | USART_CR1_RE;
+
+    // Enable USART3
+    USART3->CR1 |= USART_CR1_UE;
+}
+
+void UART_Tx(uint8_t byte)
+{
+    // Wait until Transmit Data Register is Empty (TXE)
+    while (!(USART3->ISR & USART_ISR_TXE))
+    {
+    }
+
+    // Write byte to Transmit Data Register
+    USART3->TDR = byte;
+}
+
+uint8_t UART_Rx(void)
+{
+    // If an Overrun Error (ORE) occurs, clear it
+    if (USART3->ISR & USART_ISR_ORE)
+    {
+        USART3->ICR = USART_ICR_ORECF;
+    }
+
+    // Wait until Receive Data Register Not Empty (RXNE)
+    while (!(USART3->ISR & USART_ISR_RXNE))
+    {
+    }
+
+    // Reading RDR clears RXNE
+    return (uint8_t)(USART3->RDR & 0xFFU);
+}
