@@ -1,0 +1,17 @@
+Practical 5 extended for Practical 6.
+
+Added: Src/ADC/{adc.h,adc.c}, Src/Ultrasonic/{ultrasonic.h,ultrasonic.c}.
+Updated: Src/main.c (final Part F five-state FSM), CMakeLists.txt.
+Kept unchanged: original UART and Kobuki drivers.
+
+Hardware: MB1043 pin 6 -> 3V3, pin 7 -> GND, pin 3 -> PA0/A0.
+Sensor and robot grounds must be common.
+
+FIRST TEST: place robot on a block with the wheels off the table.
+Build and hardware testing are still required on your STM32 toolchain.
+
+KNOWN LIMITATIONS inherited from Practical 5/manual:
+- UART_Rx / Kobuki_Rx block while waiting for data; stop button cannot be checked during that wait.
+- The manual's AVOID delay is busy-wait, with no button polling.
+- Kobuki_Read assumes a fixed received bytestream layout. Confirm feedback and button mappings on hardware.
+- The manual FSM does not require a wheeldrop condition; consider one for your final autonomous project.
