@@ -1,0 +1,5 @@
+/Users/shaheermustafa/Documents/2026 Uni/Semester 2/Microcontroller Programming/Practical 5 - Robot/Practical 5/Practical5/Src/Kobuki_Drivers/kobuki.c:7:6:Kobuki_Tx	24	static
+/Users/shaheermustafa/Documents/2026 Uni/Semester 2/Microcontroller Programming/Practical 5 - Robot/Practical 5/Practical5/Src/Kobuki_Drivers/kobuki.c:29:9:Kobuki_Rx	40	static
+/Users/shaheermustafa/Documents/2026 Uni/Semester 2/Microcontroller Programming/Practical 5 - Robot/Practical 5/Practical5/Src/Kobuki_Drivers/kobuki.c:81:6:Kobuki_Read	32	static
+/Users/shaheermustafa/Documents/2026 Uni/Semester 2/Microcontroller Programming/Practical 5 - Robot/Practical 5/Practical5/Src/Kobuki_Drivers/kobuki.c:104:6:Kobuki_Drive	24	static
+/Users/shaheermustafa/Documents/2026 Uni/Semester 2/Microcontroller Programming/Practical 5 - Robot/Practical 5/Practical5/Src/Kobuki_Drivers/kobuki.c:129:6:Kobuki_Rotate	24	static
