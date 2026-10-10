@@ -1,3 +1,0 @@
-/Users/shaheermustafa/Documents/2026 Uni/Semester 2/Microcontroller Programming/Practical 5 - Robot/Practical 5/Practical5/build/Debug/CMakeFiles/Practical5.dir
-/Users/shaheermustafa/Documents/2026 Uni/Semester 2/Microcontroller Programming/Practical 5 - Robot/Practical 5/Practical5/build/Debug/CMakeFiles/edit_cache.dir
-/Users/shaheermustafa/Documents/2026 Uni/Semester 2/Microcontroller Programming/Practical 5 - Robot/Practical 5/Practical5/build/Debug/CMakeFiles/rebuild_cache.dir

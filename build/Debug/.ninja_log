@@ -1,8 +1,0 @@
-# ninja log v7
-3	61	1791604950453749408	CMakeFiles/Practical5.dir/Src/startup_stm32g474xx.S.obj	c88f2d68069cb285
-1	105	1791604950452045635	CMakeFiles/Practical5.dir/Src/sysmem.c.obj	747b5dd846807585
-1	118	1791604950451716813	CMakeFiles/Practical5.dir/Src/syscall.c.obj	21fa024948b27dce
-1	204	1791604950452344624	CMakeFiles/Practical5.dir/Src/main.c.obj	d6c736080e3e1619
-3	259	1791604950453992357	CMakeFiles/Practical5.dir/Src/G474RE_Drivers/uart.c.obj	7a8c20856baf56ed
-5	263	1791604950455632591	CMakeFiles/Practical5.dir/Src/Kobuki_Drivers/kobuki.c.obj	678766a69a620213
-263	326	1791604950713747553	Practical5.elf	7b4c1ec02c8176ea
