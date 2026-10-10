@@ -1,3 +1,4 @@
 # MicroControllingProject
-Shaheer M
-hiten gupta
+- Hiten
+- Safin
+- Shaheer M
