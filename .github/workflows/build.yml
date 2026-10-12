@@ -31,7 +31,7 @@ jobs:
 
       - name: Verify build output
         run: |
-          elf="build/${{ matrix.build_type }}/Practical5.elf"
+          elf="build/${{ matrix.build_type }}/main.elf"
           if [ ! -s "$elf" ]; then
             echo "::error::Build did not produce $elf"
             exit 1
@@ -42,5 +42,5 @@ jobs:
       - name: Upload firmware
         uses: actions/upload-artifact@v4
         with:
-          name: Practical5-${{ matrix.build_type }}
-          path: build/${{ matrix.build_type }}/Practical5.elf
+          name: main-${{ matrix.build_type }}
+          path: build/${{ matrix.build_type }}/main.elf
