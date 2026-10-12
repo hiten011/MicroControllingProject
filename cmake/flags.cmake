@@ -141,8 +141,6 @@ target_link_options(${PROJECT_NAME} PUBLIC
         -Wl,--start-group
         -lc
         -lm
-        -lstdc++
-        -lsupc++
         -Wl,--end-group
         -Wl,-z,max-page-size=8
         -Wl,--print-memory-usage
@@ -158,8 +156,6 @@ target_link_options(${PROJECT_NAME} PUBLIC
         -Wl,--start-group
         -lc
         -lm
-        -lstdc++
-        -lsupc++
         -Wl,--end-group
         -Wl,-z,max-page-size=8
         -Wl,--print-memory-usage
