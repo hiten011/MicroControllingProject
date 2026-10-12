@@ -1,6 +1,6 @@
 #ifndef MY_STM_HELPER_H
 #define MY_STM_HELPER_H
-#include "stm32g4xx.h"
+#include "stm32g474xx.h"
 #include <stdbool.h>
 
 typedef enum { GPIOA_BUS, GPIOB_BUS, GPIOC_BUS, TIM16_BUS, TIM17_BUS, TIM3_BUS } PeripheralBus_t;
