@@ -18,72 +18,125 @@
 
 #include <stdint.h>
 #include "stm32g474xx.h"
-#define STM32G474xx
 #include "uart.h"
 #include "kobuki.h"
+#include "adc.h"
+#include "ultrasonic.h"
 
-int main(void)
+#define BUTTON_0_START  0x01U
+#define BUTTON_1_STOP   0x02U
+
+#define SEARCH_SPEED_MM_S   ((int16_t)75)
+#define FORWARD_SPEED_MM_S  ((int16_t)100)
+#define REVERSE_SPEED_MM_S  ((int16_t)-100)
+#define AVOID_SPEED_MM_S    ((int16_t)100)
+#define AVOID_DELAY_COUNT   300000U
+
+typedef enum {
+    IDLE = 0,
+    SEARCH,
+    OBJECT,
+    OBSTACLE,
+    AVOID
+} RobotState;
+
+/* Send one motor packet, avoiding back-to-back conflicting commands. */
+static void Send_Kobuki_Move(int16_t speed, int16_t radius)
 {
-    UART_Init();
+    uint8_t payload[6];
+    payload[0] = 0x01U;
+    payload[1] = 0x04U;
+    payload[2] = (uint8_t)((uint16_t)speed & 0xFFU);
+    payload[3] = (uint8_t)((uint16_t)speed >> 8);
+    payload[4] = (uint8_t)((uint16_t)radius & 0xFFU);
+    payload[5] = (uint8_t)((uint16_t)radius >> 8);
+    Kobuki_Tx(payload, sizeof(payload));
+}
 
-    // Structure containing Kobuki sensor readings
-    Kobuki_Typedef my_kobuki = {0};
-
-    // 0 = Stopped (Safe state), 1 = Running
-    uint8_t is_running = 0;
-    uint8_t is_rotating = 0;
-
-    while (1)
-    {
-        // 1. Read the latest sensor data
-        Kobuki_Read(&my_kobuki);
-
-        // 2. Evaluate Start/Stop triggers
-
-        // DRIVE STATE - Button 0
-        if (my_kobuki.button == 0x01)
-        {
-            is_running = 1;
-            is_rotating = 0;
-        }
-     
-        // ROTATE STATE - Button 2
-        else if (my_kobuki.button == 0x04)
-        {
-            is_rotating = 1;
-            is_running = 0;
-        }
-
-        // Stop triggers take priority over start triggers
-        // Button 1 OR bumper collision
-        if ((my_kobuki.button == 0x02) || my_kobuki.bumper > 0)
-        {
-            is_running = 0;
-            is_rotating = 0;
-        }
-
-        // 3. Command the motors based on current state
-
-        if (is_running == 1)
-        {
-            Kobuki_Drive(100);       // Drive forward at 100 mm/s
-            Kobuki_Rotate(0);
-        }
-        else if (is_rotating == 1)
-        {
-            Kobuki_Rotate(100);         // Placeholder for rotation command
-            Kobuki_Drive(0);
-        }
-        else
-        {
-            Kobuki_Drive(0);         // Command zero velocity
-            Kobuki_Rotate(0);
-        }
-
-        // 4. Control loop delay
-        for (volatile int i = 0; i < 50000; i++)
-        {
-        }
+static void AvoidDelay(void)
+{
+    /* Approximate delay from Practical 6, not a calibrated timebase. */
+    for (volatile uint32_t i = 0U; i < AVOID_DELAY_COUNT; ++i) {
+        __NOP();
     }
 }
 
+int main(void)
+{
+    Kobuki_Typedef my_kobuki = {0};
+    US_Typedef ultrasonic_object = {0};
+    RobotState state = IDLE;
+
+    UART_Init();
+    ADC_Init();
+    Ultrasonic_Init();
+    Send_Kobuki_Move(0, 0);
+
+    while (1) {
+        Kobuki_Read(&my_kobuki);
+        Ultrasonic_Detect(&ultrasonic_object);
+
+        /* Global stop has priority over every FSM transition. */
+        if ((my_kobuki.button & BUTTON_1_STOP) != 0U) {
+            state = IDLE;
+        } else {
+            switch (state) {
+            case IDLE:
+                if ((my_kobuki.button & BUTTON_0_START) != 0U) {
+                    state = SEARCH;
+                }
+                break;
+            case SEARCH:
+                if (ultrasonic_object.detected != 0U) {
+                    state = OBJECT;
+                }
+                break;
+            case OBJECT:
+                if ((my_kobuki.bumper != 0U) || (my_kobuki.cliff != 0U)) {
+                    state = OBSTACLE;
+                } else if (ultrasonic_object.detected == 0U) {
+                    state = SEARCH;
+                }
+                break;
+            case OBSTACLE:
+                if ((my_kobuki.bumper == 0U) && (my_kobuki.cliff == 0U)) {
+                    state = AVOID;
+                }
+                break;
+            case AVOID:
+                break;
+            default:
+                state = IDLE;
+                break;
+            }
+        }
+
+        switch (state) {
+        case IDLE:
+            Send_Kobuki_Move(0, 0);
+            break;
+        case SEARCH:
+            Kobuki_Rotate(SEARCH_SPEED_MM_S);
+            break;
+        case OBJECT:
+            Kobuki_Drive(FORWARD_SPEED_MM_S);
+            break;
+        case OBSTACLE:
+            Kobuki_Drive(REVERSE_SPEED_MM_S);
+            break;
+        case AVOID:
+            Kobuki_Rotate(AVOID_SPEED_MM_S);
+            AvoidDelay();
+            state = SEARCH;
+            break;
+        default:
+            Send_Kobuki_Move(0, 0);
+            state = IDLE;
+            break;
+        }
+
+        for (volatile uint32_t i = 0U; i < 5000U; ++i) {
+            __NOP();
+        }
+    }
+}
