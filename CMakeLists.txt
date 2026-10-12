@@ -39,6 +39,7 @@ target_sources(${PROJECT_NAME} PRIVATE
   "Src/Kobuki_Drivers/kobuki.c"
   "Src/ADC/adc.c"
   "Src/Ultrasonic/ultrasonic.c"
+  "Src/stm_helper/my_stm_helper.c"
 )
 
 # Add include directories
@@ -52,6 +53,7 @@ target_include_directories(${PROJECT_NAME} PRIVATE
   Src/Kobuki_Drivers
   Src/ADC
   Src/Ultrasonic
+  Src/stm_helper
 )
 
 # Compiler options
