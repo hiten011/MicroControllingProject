@@ -1,0 +1,46 @@
+name: Build
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        build_type: [Debug, Release]
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install toolchain
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            cmake ninja-build gcc-arm-none-eabi libnewlib-arm-none-eabi binutils-arm-none-eabi
+          arm-none-eabi-gcc --version
+          cmake --version
+
+      - name: Configure
+        run: cmake --preset ${{ matrix.build_type }}
+
+      - name: Build
+        run: cmake --build --preset ${{ matrix.build_type }} --verbose
+
+      - name: Verify build output
+        run: |
+          elf="build/${{ matrix.build_type }}/Practical5.elf"
+          if [ ! -s "$elf" ]; then
+            echo "::error::Build did not produce $elf"
+            exit 1
+          fi
+          file "$elf"
+          arm-none-eabi-size "$elf"
+
+      - name: Upload firmware
+        uses: actions/upload-artifact@v4
+        with:
+          name: Practical5-${{ matrix.build_type }}
+          path: build/${{ matrix.build_type }}/Practical5.elf
