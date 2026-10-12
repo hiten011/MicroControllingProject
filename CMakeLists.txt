@@ -28,6 +28,9 @@ set(PROJECT_NAME Practical5)
 # Create an executable object type
 add_executable(${PROJECT_NAME})
 
+# Firmware binary is named after the main program (main.elf), not the project label.
+set_target_properties(${PROJECT_NAME} PROPERTIES OUTPUT_NAME main)
+
 # Include additional CMake files for flags, components, and files
 include(${CMAKE_CURRENT_SOURCE_DIR}/cmake/flags.cmake)
 include(${CMAKE_CURRENT_SOURCE_DIR}/cmake/components.cmake)
