@@ -3,12 +3,12 @@
 
 void Clock_Enable(PeripheralBus_t peripheral) {
   switch (peripheral) {
-    case GPIOA_BUS: RCC->IOPENR  |= 1<<0;  break;
-    case GPIOB_BUS: RCC->IOPENR  |= 1<<1;  break;
-    case GPIOC_BUS: RCC->IOPENR  |= 1<<2;  break;
-    case TIM16_BUS: RCC->APBENR2 |= 1<<17; break;
-    case TIM17_BUS: RCC->APBENR2 |= 1<<18; break;
-    case TIM3_BUS:  RCC->APBENR1 |= 1<<1;  break;
+    case GPIOA_BUS: RCC->AHB2ENR  |= RCC_AHB2ENR_GPIOAEN;    break;
+    case GPIOB_BUS: RCC->AHB2ENR  |= RCC_AHB2ENR_GPIOBEN;    break;
+    case GPIOC_BUS: RCC->AHB2ENR  |= RCC_AHB2ENR_GPIOCEN;    break;
+    case TIM16_BUS: RCC->APB2ENR  |= RCC_APB2ENR_TIM16EN;    break;
+    case TIM17_BUS: RCC->APB2ENR  |= RCC_APB2ENR_TIM17EN;    break;
+    case TIM3_BUS:  RCC->APB1ENR1 |= RCC_APB1ENR1_TIM3EN;    break;
   }
 }
 
@@ -33,7 +33,7 @@ void GPIO_InitPinsSameMode(GPIO_TypeDef *port, uint8_t *pins, GPIOMode_t mode, G
   }
 }
 
-// Fills AFR with the peripheral's AF number (per STM32C0 datasheet AF table).
+// Fills AFR with the peripheral's AF number (per STM32G4 datasheet AF table).
 // Caller is responsible for setting the pin to ALT mode.
 void GPIO_ConnectPeripheral(GPIO_TypeDef *port, uint8_t pin, uint8_t af) {
   if (pin < 8) {
@@ -125,12 +125,13 @@ void EXTI_Init(GPIO_TypeDef *port, uint8_t pin, ExtiTrigger trigger, IRQn_Type i
     port_idx = 2;
   }
 
-  // 2. Configure the EXTI_EXTICRx Multiplexer
-  // The STM32C0 allocates 8 bits per pin across 4 registers
+  // 2. Configure the SYSCFG_EXTICRx Multiplexer
+  // The STM32G4 allocates 4 bits per pin across 4 registers
+  RCC->APB2ENR |= RCC_APB2ENR_SYSCFGEN;
   uint8_t register_index = pin / 4;
-  uint8_t bit_position = (pin % 4) * 8;
-  EXTI->EXTICR[register_index] &= ~(0xFF << bit_position);
-  EXTI->EXTICR[register_index] |=  (port_idx << bit_position);
+  uint8_t bit_position = (pin % 4) * 4;
+  SYSCFG->EXTICR[register_index] &= ~(0xFUL << bit_position);
+  SYSCFG->EXTICR[register_index] |=  (port_idx << bit_position);
 
   // 3. Configure Trigger Selection Registers : EXTI - > FTSR1 and EXTI - >
   // RTSR1
@@ -147,10 +148,8 @@ void EXTI_Init(GPIO_TypeDef *port, uint8_t pin, ExtiTrigger trigger, IRQn_Type i
   // 4. Unmask the designated interrupt line : EXTI - > IMR1
   EXTI->IMR1 |= (1<< pin);
 
-  // Clear any pending flags (FPR1 = Falling, RPR1 = Rising)
-  // Write to clear register
-  EXTI->FPR1 |= (1 << pin);
-  EXTI->RPR1 |= (1 << pin);
+  // Clear any pending flag (PR1, write 1 to clear)
+  EXTI->PR1 = (1UL << pin);
 
   // 5. Enable the shared NVIC line (idempotent if already enabled by another pin)
   NVIC_EnableIRQ(irq_type);
