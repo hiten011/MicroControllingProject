@@ -257,3 +257,18 @@ void Kobuki_Drive_Distance(uint16_t current_distance_tick)
         Kobuki_Drive(speed);
     }
 }
+
+// This wrapper is based on the General Purpose Output
+// information in the Kobuki bytestream document
+#define EXTERN_PWR 0x30
+void Kobuki_Update_LEDs(Kobuki_LED_Enum led_1_colour, Kobuki_LED_Enum led_2_colour)
+{
+    // Split LSB and MSB for payload
+    uint8_t GPO_lsb = EXTERN_PWR; // Keep 5 V and 3.3 V on
+
+    uint8_t GPO_msb = led_1_colour | (uint8_t)(led_2_colour << 2);
+
+    uint8_t payload[] = {0x0C, 0x02, GPO_lsb, GPO_msb};
+
+    Kobuki_Tx(payload, sizeof(payload));
+}
