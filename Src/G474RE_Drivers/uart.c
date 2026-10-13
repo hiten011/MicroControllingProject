@@ -17,15 +17,9 @@ void UART_Init(void)
     GPIOC->MODER |= (GPIO_MODER_MODE10_1 | GPIO_MODER_MODE11_1);
 
     // Route Alternate Function 7 (AF7) to PC10 and PC11
-    GPIOC->AFR[1] &= ~(
-        GPIO_AFRH_AFSEL10 |
-        GPIO_AFRH_AFSEL11
-    );
+    GPIOC->AFR[1] &= ~(GPIO_AFRH_AFSEL10 | GPIO_AFRH_AFSEL11);
 
-    GPIOC->AFR[1] |= (
-        (7U << GPIO_AFRH_AFSEL10_Pos) |
-        (7U << GPIO_AFRH_AFSEL11_Pos)
-    );
+    GPIOC->AFR[1] |= ((7U << GPIO_AFRH_AFSEL10_Pos) | (7U << GPIO_AFRH_AFSEL11_Pos));
 
     // 3. Configure USART3
     USART3->CR1 &= ~USART_CR1_UE;  // Turn off to allow configuration
@@ -43,9 +37,7 @@ void UART_Init(void)
 void UART_Tx(uint8_t byte)
 {
     // Wait until Transmit Data Register is Empty (TXE)
-    while (!(USART3->ISR & USART_ISR_TXE))
-    {
-    }
+    while (!(USART3->ISR & USART_ISR_TXE)) {}
 
     // Write byte to Transmit Data Register
     USART3->TDR = byte;
@@ -54,15 +46,12 @@ void UART_Tx(uint8_t byte)
 uint8_t UART_Rx(void)
 {
     // If an Overrun Error (ORE) occurs, clear it
-    if (USART3->ISR & USART_ISR_ORE)
-    {
+    if (USART3->ISR & USART_ISR_ORE) {
         USART3->ICR = USART_ICR_ORECF;
     }
 
     // Wait until Receive Data Register Not Empty (RXNE)
-    while (!(USART3->ISR & USART_ISR_RXNE))
-    {
-    }
+    while (!(USART3->ISR & USART_ISR_RXNE)) {}
 
     // Reading RDR clears RXNE
     return (uint8_t)(USART3->RDR & 0xFFU);
