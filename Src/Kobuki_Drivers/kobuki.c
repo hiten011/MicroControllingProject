@@ -111,6 +111,9 @@ void Kobuki_Read(Kobuki_Typedef *kobuki)
     uint8_t kobuki_rx_buffer[SIZE_FEEDBACK];
     uint8_t checksum_result;
 
+    // Read Kobuki Tx data stream
+    checksum_result = Kobuki_Rx(kobuki_rx_buffer, SIZE_FEEDBACK);
+
     // If checksum checks out, update sensor variables from buffer
     if (checksum_result == 0) {
         distance_LSB = kobuki_rx_buffer[DIST_LSB];
