@@ -1,0 +1,56 @@
+name: Lint
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+# A new push to the same branch/PR cancels the older run.
+concurrency:
+  group: lint-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  format:
+    name: clang-format
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      # Pinned so CI and local formatting agree. Match this version locally:
+      #   pip install clang-format==18.1.8
+      - name: Install clang-format
+        run: pip install clang-format==18.1.8
+
+      - name: Check formatting
+        run: scripts/format.sh --check
+
+  cppcheck:
+    name: cppcheck
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install cppcheck
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends cppcheck
+          cppcheck --version
+
+      # Fails the job on real problems (severity: error / warning).
+      - name: cppcheck (blocking)
+        run: |
+          cppcheck -q --std=c11 --enable=warning --inline-suppr \
+            --suppress=missingInclude --suppress=missingIncludeSystem \
+            --error-exitcode=1 \
+            -I Src/ADC -I Src/G474RE_Drivers -I Src/Kobuki_Drivers -I Src/Ultrasonic -I Src/stm_helper \
+            Src/main.c Src/ADC Src/G474RE_Drivers Src/Kobuki_Drivers Src/Ultrasonic Src/stm_helper
+
+      # Style / performance / portability findings show up as annotations but do not fail the job.
+      - name: cppcheck (advisory)
+        run: |
+          cppcheck -q --std=c11 --enable=style,performance,portability --inline-suppr \
+            --suppress=missingInclude --suppress=missingIncludeSystem \
+            --template='::warning file={file},line={line},title=cppcheck {id}::{message}' \
+            -I Src/ADC -I Src/G474RE_Drivers -I Src/Kobuki_Drivers -I Src/Ultrasonic -I Src/stm_helper \
+            Src/main.c Src/ADC Src/G474RE_Drivers Src/Kobuki_Drivers Src/Ultrasonic Src/stm_helper
