@@ -23,6 +23,8 @@ typedef enum { OFF, RED, GREEN, YELLOW } Kobuki_LED_Enum;
 # define BUMPER 4
 # define WHEEL_DROP 5
 # define CLIFF 6
+# define DIST_LSB 7 // only needs 1 wheel
+# define DIST_MSB 8
 # define BUTTON 13
 #define ANGLE_LSB 24 // only needs 1 wheel
 #define ANGLE_MSB 25
