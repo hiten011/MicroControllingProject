@@ -9,14 +9,14 @@
 // Parameters for distance and angle calculation
 // These can be placed in kobuki.h
 
-#define PI (3.14159)
-#define WHEEL_RADIUS (35.0) // mm
+#define PI                   (3.14159)
+#define WHEEL_RADIUS         (35.0)  // mm
 #define REVOLUTIONS_PER_TICK ((132.0 / 6545.0) / 52.0)
-#define MM_PER_TICK (2.0 * PI * WHEEL_RADIUS * REVOLUTIONS_PER_TICK)
-#define DEG_PER_TICK (1.0 / 100.0)
-#define GAIN_ROTATE (1.0 / 0.90)
-#define GAIN_DRIVE (100.0 / 100.0)
-#define sign(x) ((int8_t)((x) >= 0 ? 1 : -1))
+#define MM_PER_TICK          (2.0 * PI * WHEEL_RADIUS * REVOLUTIONS_PER_TICK)
+#define DEG_PER_TICK         (1.0 / 100.0)
+#define GAIN_ROTATE          (1.0 / 0.90)
+#define GAIN_DRIVE           (100.0 / 100.0)
+#define sign(x)              ((int8_t)((x) >= 0 ? 1 : -1))
 
 // Static variables and flags
 // Keep these in kobuki.c
@@ -31,22 +31,20 @@ void Kobuki_Tx(uint8_t *payload, uint8_t size_payload)
     uint8_t checksum = 0;
     uint8_t i;
 
-    UART_Tx(0xAA);              // Send header 0
-    UART_Tx(0x55);              // Send header 1
-    UART_Tx(size_payload);      // Send size of payload in bytes
+    UART_Tx(0xAA);          // Send header 0
+    UART_Tx(0x55);          // Send header 1
+    UART_Tx(size_payload);  // Send size of payload in bytes
 
-    checksum ^= size_payload;   // Calculate running checksum
+    checksum ^= size_payload;  // Calculate running checksum
 
     // Send each byte of payload one-by-one
-    for (i = 0; i < size_payload; i++)
-    {
+    for (i = 0; i < size_payload; i++) {
         UART_Tx(payload[i]);
         checksum ^= payload[i];
     }
 
-    UART_Tx(checksum);          // Send checksum
+    UART_Tx(checksum);  // Send checksum
 }
-
 
 uint8_t Kobuki_Rx(uint8_t *feedback, uint32_t size_feedback)
 {
@@ -57,16 +55,13 @@ uint8_t Kobuki_Rx(uint8_t *feedback, uint32_t size_feedback)
     uint32_t i;
 
     // 1. Find the valid 0xAA 0x55 sequence
-    while (1)
-    {
+    while (1) {
         feedback_header = UART_Rx();
 
-        if (feedback_header == 0xAA)
-        {
+        if (feedback_header == 0xAA) {
             feedback_header = UART_Rx();
 
-            if (feedback_header == 0x55)
-            {
+            if (feedback_header == 0x55) {
                 break;  // Valid start found
             }
         }
@@ -78,26 +73,22 @@ uint8_t Kobuki_Rx(uint8_t *feedback, uint32_t size_feedback)
     checksum ^= size_payload;
 
     // 3. Determine safe boundary to prevent array overflow
-    uint32_t limit = (size_payload < size_feedback)
-                   ? size_payload
-                   : size_feedback;
+    uint32_t limit = (size_payload < size_feedback) ? size_payload : size_feedback;
 
     // 4. Read payload into feedback array
-    for (i = 0; i < limit; i++)
-    {
+    for (i = 0; i < limit; i++) {
         feedback[i] = UART_Rx();
         checksum ^= feedback[i];
     }
 
     // 5. Read and discard remaining payload
-    for (i = limit; i < size_payload; i++)
-    {
+    for (i = limit; i < size_payload; i++) {
         checksum ^= UART_Rx();
     }
 
     // 6. Read received checksum
-    rx_checksum = UART_Rx(); // checksum from kobuki-final byte
-    return (checksum != rx_checksum); // 0 = Success, 1 = Error
+    rx_checksum = UART_Rx();           // checksum from kobuki-final byte
+    return (checksum != rx_checksum);  // 0 = Success, 1 = Error
 }
 
 void Kobuki_Read(Kobuki_Typedef *kobuki)
@@ -117,18 +108,18 @@ void Kobuki_Read(Kobuki_Typedef *kobuki)
     // If checksum checks out, update sensor variables from buffer
     if (checksum_result == 0) {
         distance_LSB = kobuki_rx_buffer[DIST_LSB];
-        angle_LSB    = kobuki_rx_buffer[ANGLE_LSB];
+        angle_LSB = kobuki_rx_buffer[ANGLE_LSB];
 
         distance_MSB = (uint16_t)((uint16_t)kobuki_rx_buffer[DIST_MSB] << 8);
 
         angle_MSB = (int16_t)((int16_t)kobuki_rx_buffer[ANGLE_MSB] << 8);
 
-        kobuki->bumper    = kobuki_rx_buffer[BUMPER];
+        kobuki->bumper = kobuki_rx_buffer[BUMPER];
         kobuki->wheeldrop = kobuki_rx_buffer[WHEEL_DROP];
-        kobuki->cliff     = kobuki_rx_buffer[CLIFF];
-        kobuki->button    = kobuki_rx_buffer[BUTTON];
-        kobuki->distance  = distance_LSB | distance_MSB;
-        kobuki->angle     = angle_LSB | angle_MSB;
+        kobuki->cliff = kobuki_rx_buffer[CLIFF];
+        kobuki->button = kobuki_rx_buffer[BUTTON];
+        kobuki->distance = distance_LSB | distance_MSB;
+        kobuki->angle = angle_LSB | angle_MSB;
     }
     // Otherwise, do not update sensor variables
     else {
@@ -145,16 +136,13 @@ void Kobuki_Drive(int16_t speed)
     uint8_t speed_msb = 0;
 
     // Construct payload
-    uint8_t payload[] = {0x01, 0x04, speed_lsb, speed_msb, 0x00, 0x00}; /// 4th one is important
+    uint8_t payload[] = {0x01, 0x04, speed_lsb, speed_msb, 0x00, 0x00};  /// 4th one is important
 
     // Saturation to avoid going over speed limit
-    if (speed > SPEED_LIMIT)
-    {
+    if (speed > SPEED_LIMIT) {
         speed = SPEED_LIMIT;
-    }
-    else if (speed < -SPEED_LIMIT)
-    {
-        speed = (~SPEED_LIMIT)+1;
+    } else if (speed < -SPEED_LIMIT) {
+        speed = (~SPEED_LIMIT) + 1;
     }
 
     // Split LSB & MSB for payload
@@ -164,22 +152,22 @@ void Kobuki_Drive(int16_t speed)
     Kobuki_Tx(payload, sizeof(payload));
 }
 
-void Kobuki_Rotate(int16_t speed) {
+void Kobuki_Rotate(int16_t speed)
+{
     uint8_t speed_lsb = 0;
     uint8_t speed_msb = 0;
     // Construct payload
-    uint8_t payload[] = {0x01,0x04,0x00,0x00,0x01,0x00};
+    uint8_t payload[] = {0x01, 0x04, 0x00, 0x00, 0x01, 0x00};
     // saturation to avoid going over speed limit
-    if ( speed > SPEED_LIMIT ){
+    if (speed > SPEED_LIMIT) {
         speed = SPEED_LIMIT;
+    } else if (speed < -SPEED_LIMIT) {
+        speed = (~SPEED_LIMIT) + 1;
     }
-    else if ( speed <-SPEED_LIMIT ){
-    speed = (~SPEED_LIMIT)+1;
-    }
-    //split lsb & msb for payload
+    // split lsb & msb for payload
     payload[2] = (uint8_t)speed;
     payload[3] = (uint8_t)(speed >> 8);
-    Kobuki_Tx(payload,sizeof(payload));
+    Kobuki_Tx(payload, sizeof(payload));
 }
 
 void Kobuki_Rotate_Angle_Setpoint(int16_t current_angle_tick, int16_t rot_angle_deg)
@@ -189,8 +177,8 @@ void Kobuki_Rotate_Angle_Setpoint(int16_t current_angle_tick, int16_t rot_angle_
     rotation_complete = 0;
 
     // Initial angle
-    init_angle = (int32_t)((double)(current_angle_tick + (int32_t)18000) *
-                           DEG_PER_TICK); // [-18000, 18000] -> [0, 360] degrees
+    init_angle =
+        (int32_t)((double)(current_angle_tick + (int32_t)18000) * DEG_PER_TICK);  // [-18000, 18000] -> [0, 360] degrees
 
     // Setpoint angle
     setpoint_angle_deg = (init_angle + rot_angle_deg + 360) % 360;
@@ -232,7 +220,7 @@ void Kobuki_Rotate_Angle(int16_t current_angle_tick)
 
 void Kobuki_Drive_Distance_Setpoint(uint16_t current_distance_tick, int16_t distance)
 {
-    distance_complete      = 0;
+    distance_complete = 0;
     setpoint_distance_tick = current_distance_tick + (int32_t)(distance / MM_PER_TICK);
 }
 
@@ -267,7 +255,7 @@ void Kobuki_Drive_Distance(uint16_t current_distance_tick)
 void Kobuki_Update_LEDs(Kobuki_LED_Enum led_1_colour, Kobuki_LED_Enum led_2_colour)
 {
     // Split LSB and MSB for payload
-    uint8_t GPO_lsb = EXTERN_PWR; // Keep 5 V and 3.3 V on
+    uint8_t GPO_lsb = EXTERN_PWR;  // Keep 5 V and 3.3 V on
 
     uint8_t GPO_msb = led_1_colour | (uint8_t)(led_2_colour << 2);
 
