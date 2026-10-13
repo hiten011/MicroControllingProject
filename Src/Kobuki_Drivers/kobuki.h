@@ -15,7 +15,7 @@ typedef struct {
     uint8_t distance_complete;
 } Kobuki_Typedef;
 
-typedef enum uint8_t { OFF, RED, GREEN, YELLOW } Kobuki_LED_Enum;
+typedef enum { OFF, RED, GREEN, YELLOW } Kobuki_LED_Enum;
 
 #define SIZE_FEEDBACK 26
 
