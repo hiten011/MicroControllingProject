@@ -15,6 +15,8 @@ typedef struct {
     uint8_t distance_complete;
 } Kobuki_Typedef;
 
+typedef enum uint8_t { OFF, RED, GREEN, YELLOW } Kobuki_LED_Enum;
+
 #define SIZE_FEEDBACK 26
 
 // Buffer defintions for x payload
@@ -47,4 +49,6 @@ void Kobuki_Rotate_Angle(int16_t current_angle_tick);
 void Kobuki_Drive_Distance_Setpoint(uint16_t current_distance_tick, int16_t distance);
 void Kobuki_Drive_Distance(uint16_t current_distance_tick);
 
+// kobuki update LEDs
+void Kobuki_Update_LEDs(Kobuki_LED_Enum led_1_colour, Kobuki_LED_Enum led_2_colour);
 #endif
