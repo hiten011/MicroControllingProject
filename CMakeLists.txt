@@ -43,6 +43,11 @@ target_sources(${PROJECT_NAME} PRIVATE
   "Src/ADC/adc.c"
   "Src/Ultrasonic/ultrasonic.c"
   "Src/stm_helper/my_stm_helper.c"
+  "Src/test/test.c"
+  "Src/test/test_adc.c"
+  "Src/test/test_ultrasonic.c"
+  "Src/test/test_uart.c"
+  "Src/test/test_kobuki.c"
 )
 
 # Add include directories
@@ -57,6 +62,7 @@ target_include_directories(${PROJECT_NAME} PRIVATE
   Src/ADC
   Src/Ultrasonic
   Src/stm_helper
+  Src/test
 )
 
 # Compiler options
