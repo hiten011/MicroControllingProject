@@ -1,0 +1,42 @@
+# Code style for this project's own C sources (not the vendor HAL/CMSIS code).
+#
+# Modelled on the ESP-IDF style guide, which is a well-known embedded C style:
+#   - 4 spaces per indent level, no tabs
+#   - opening brace of a function on its own line; `if`/`else`/`for`/`while`/`switch`
+#     braces stay on the same line as the keyword
+#   - 120 column limit
+# ESP-IDF itself uses Astyle; these are the equivalent clang-format options.
+# https://docs.espressif.com/projects/esp-idf/en/latest/esp32/contribute/style-guide.html
+---
+Language: Cpp
+BasedOnStyle: LLVM
+
+IndentWidth: 4
+TabWidth: 4
+UseTab: Never
+ColumnLimit: 120
+
+# Function braces on their own line, everything else attached ("Linux" style).
+BreakBeforeBraces: Linux
+
+# Always use braces for readable diffs; do not collapse bodies onto one line.
+AllowShortFunctionsOnASingleLine: None
+AllowShortIfStatementsOnASingleLine: Never
+AllowShortLoopsOnASingleLine: false
+AllowShortBlocksOnASingleLine: Empty
+AllowShortCaseLabelsOnASingleLine: false
+
+# `uint8_t *ptr`, `char *name` (pointer binds to the variable, as in the HAL).
+PointerAlignment: Right
+DerivePointerAlignment: false
+
+# Keep register/macro tables readable.
+AlignConsecutiveMacros: Consecutive
+AlignTrailingComments: true
+SpacesBeforeTrailingComments: 2
+
+# Include order matters in this project (e.g. device header before drivers).
+SortIncludes: Never
+
+IndentCaseLabels: true
+MaxEmptyLinesToKeep: 1

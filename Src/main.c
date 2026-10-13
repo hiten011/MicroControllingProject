@@ -14,17 +14,11 @@
 #define BUTTON_2_ROTATE 0x04U
 
 // Logic
-#define NULL  0
-#define TRUE  1
+#define NULL 0
+#define TRUE 1
 
 // States
-static enum {
-    IDLE,
-    SEARCH,
-    OBSTACLE,
-    AVOID,
-    OBJECT
-} state;
+static enum { IDLE, SEARCH, OBSTACLE, AVOID, OBJECT } state;
 
 int main(void)
 {
@@ -64,54 +58,40 @@ int main(void)
                     state = SEARCH;
                     led_1 = RED;
 
-                    Kobuki_Rotate_Angle_Setpoint(
-                        kobuki.angle, 450
-                    );
+                    Kobuki_Rotate_Angle_Setpoint(kobuki.angle, 450);
 
                     // Kobuki_Drive_Distance_Setpoint(
                     //     kobuki.distance, 100
                     // );
-                }
-                else if (kobuki.button == BUTTON_1_STOP) {
+                } else if (kobuki.button == BUTTON_1_STOP) {
                     state = SEARCH;
                     led_1 = RED;
 
-                    Kobuki_Rotate_Angle_Setpoint(
-                        kobuki.angle, 270
-                    );
+                    Kobuki_Rotate_Angle_Setpoint(kobuki.angle, 270);
 
                     // Kobuki_Drive_Distance_Setpoint(
                     //     kobuki.distance, -100
                     // );
-                }
-                else if (kobuki.button == BUTTON_2_ROTATE) {
+                } else if (kobuki.button == BUTTON_2_ROTATE) {
                     state = SEARCH;
                     led_1 = RED;
 
-                    Kobuki_Rotate_Angle_Setpoint(
-                        kobuki.angle, 90
-                    );
+                    Kobuki_Rotate_Angle_Setpoint(kobuki.angle, 90);
 
                     // Kobuki_Drive_Distance_Setpoint(
                     //     kobuki.distance, 1000
                     // );
-                }
-                else {
+                } else {
                     Kobuki_Drive(STOP);
                 }
                 break;
 
             case SEARCH:
-                if (
-                    (kobuki.wheeldrop != NULL) |
-                    ((kobuki.bumper + kobuki.cliff) != NULL) |
-                    (kobuki.rotation_complete == TRUE) |
-                    (kobuki.distance_complete == TRUE)
-                ) {
+                if ((kobuki.wheeldrop != NULL) | ((kobuki.bumper + kobuki.cliff) != NULL) |
+                    (kobuki.rotation_complete == TRUE) | (kobuki.distance_complete == TRUE)) {
                     state = IDLE;
                     led_1 = YELLOW;
-                }
-                else {
+                } else {
                     Kobuki_Rotate_Angle(kobuki.angle);
 
                     // Kobuki_Drive_Distance(kobuki.distance);

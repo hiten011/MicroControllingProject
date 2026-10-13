@@ -23,6 +23,10 @@ jobs:
           arm-none-eabi-gcc --version
           cmake --version
 
+      # Show compiler warnings as annotations on the PR (-Wall -Wextra -Wpedantic are set in cmake/flags.cmake).
+      - name: Register GCC problem matcher
+        run: echo "::add-matcher::.github/gcc-problem-matcher.json"
+
       - name: Configure
         run: cmake --preset ${{ matrix.build_type }}
 
