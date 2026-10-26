@@ -1,0 +1,46 @@
+// Ultrasonic test for MicroControllingProject (NUCLEO-G474RE)
+// Replace Src/main.c temporarily with this test.
+// The robot does not receive any movement commands.
+// Connect the ultrasonic sensor's ANALOG output to PA0 (CN7 pin 28 / A0).
+// Sensor output must not exceed 3.3 V.
+
+#include <stdint.h>
+
+#ifndef STM32G474xx
+#define STM32G474xx
+#endif
+
+#include "stm32g4xx.h"
+#include "ultrasonic.h"
+
+// Approximate software delay only. Adjust if necessary for your clock.
+// For a precise 2-second interval, replace with a configured hardware timer.
+static void Delay_Approx(void)
+{
+    for (volatile uint32_t i = 0; i < 8000000U; i++) {
+        __asm volatile ("nop");
+    }
+}
+
+int main(void)
+{
+    US_Typedef object;
+    volatile uint16_t ultrasonic_read = 0;
+
+    Ultrasonic_Init();
+
+    while (1) {
+        // Read and process the ultrasonic measurement.
+        Ultrasonic_Detect(&object);
+        ultrasonic_read = Ultrasonic_Read();
+
+        // In VS Code Debug > Watch, add: ultrasonic_read
+        // Pause the debugger to inspect the latest value.
+        Delay_Approx();
+    }
+}
+
+// NOTE: Delay_Approx() is NOT calibrated to 2 seconds.
+// The reading frequency depends on CPU clock and compiler settings.
+// To print readings continuously to your computer, you would also need
+// UART logging (not included here). This version updates a Watch variable.
