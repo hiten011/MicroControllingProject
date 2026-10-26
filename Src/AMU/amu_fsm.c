@@ -23,7 +23,7 @@ static void Enter_Pathfind_State(AMU_Typedef *amu, AMU_Pathfind_Enum pathfind)
 }
 
 // Entry to a corridor: latch the corridor heading and start in DRIVE.
-static void Enter_Pathfind(AMU_Typedef *amu, const Kobuki_Typedef *kobuki, AMU_Corridor_Enum corridor)
+static void Enter_Corridor(AMU_Typedef *amu, const Kobuki_Typedef *kobuki, AMU_Corridor_Enum corridor)
 {
     amu->corridor = corridor;
     amu->heading = kobuki->angle;
@@ -31,9 +31,15 @@ static void Enter_Pathfind(AMU_Typedef *amu, const Kobuki_Typedef *kobuki, AMU_C
     Enter(amu, AMU_PATHFIND);
 }
 
+static void Enter_Storage_State(AMU_Typedef *amu, AMU_Storage_Enum storage)
+{
+    amu->storage = storage;
+    amu->entry = true;
+}
+
 static void Enter_Storage(AMU_Typedef *amu)
 {
-    amu->storage = AMU_ST_TURN;
+    Enter_Storage_State(amu, AMU_ST_TURN);
     Enter(amu, AMU_STORAGE);
 }
 
@@ -44,7 +50,7 @@ static int16_t Mirror(AMU_Layout_Enum layout)
     return (layout == AMU_LAYOUT_A) ? 1 : -1;
 }
 
-static bool Contact(const Kobuki_Typedef *kobuki)
+static bool Bumper_Or_Cliff(const Kobuki_Typedef *kobuki)
 {
     return (kobuki->bumper != 0U) || (kobuki->cliff != 0U);
 }
@@ -100,7 +106,7 @@ static void Search(AMU_Typedef *amu, const Kobuki_Typedef *kobuki)
         amu->sweep_count = 0;
     }
 
-    if (Contact(kobuki)) {
+    if (Bumper_Or_Cliff(kobuki)) {
         Enter(amu, AMU_STOP_FAULT);
         return;
     }
@@ -143,7 +149,7 @@ static void Orient(AMU_Typedef *amu, const Kobuki_Typedef *kobuki)
 {
     int16_t angle_deg;
 
-    if (Contact(kobuki)) {
+    if (Bumper_Or_Cliff(kobuki)) {
         Enter(amu, AMU_STOP_FAULT);
         return;
     }
@@ -162,7 +168,7 @@ static void Orient(AMU_Typedef *amu, const Kobuki_Typedef *kobuki)
     }
 
     if (Rotate_Step(amu, kobuki, angle_deg)) {
-        Enter_Pathfind(amu, kobuki, AMU_FIRST_CORRIDOR);
+        Enter_Corridor(amu, kobuki, AMU_FIRST_CORRIDOR);
     }
 }
 
@@ -174,7 +180,7 @@ static void Front_Cliff_Turn(AMU_Typedef *amu, const Kobuki_Typedef *kobuki)
         Kobuki_Drive(STOP);
         Enter_Storage(amu);
     } else if (Rotate_Step(amu, kobuki, Mirror(amu->layout) * CORRIDOR_TURN_DEG)) {
-        Enter_Pathfind(amu, kobuki, AMU_SECOND_CORRIDOR);
+        Enter_Corridor(amu, kobuki, AMU_SECOND_CORRIDOR);
     }
 }
 
@@ -230,8 +236,7 @@ static void Storage(AMU_Typedef *amu, const Kobuki_Typedef *kobuki)
     switch (amu->storage) {
         case AMU_ST_TURN:
             if (Rotate_Step(amu, kobuki, Mirror(amu->layout) * STORAGE_TURN_DEG)) {
-                amu->storage = AMU_ST_DRIVE_IN;
-                amu->entry = true;
+                Enter_Storage_State(amu, AMU_ST_DRIVE_IN);
             }
             break;
         case AMU_ST_DRIVE_IN:

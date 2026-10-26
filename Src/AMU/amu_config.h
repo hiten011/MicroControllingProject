@@ -8,7 +8,7 @@
 // Names used by the AMU FSM diagram (docs/amu_fsm.drawio).
 // Values marked PLACEHOLDER are unverified: tune them on the hardware.
 
-// Kobuki protocol codes. Confirm on the hardware.
+// Kobuki protocol codes. PLACEHOLDER until confirmed on the hardware.
 #define BUTTON_0_START ((uint8_t)0x01U)
 #define BUTTON_1_STOP  ((uint8_t)0x02U)
 #define BUMPER_RIGHT   ((uint8_t)0x01U)
