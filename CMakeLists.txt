@@ -38,6 +38,7 @@ include(${CMAKE_CURRENT_SOURCE_DIR}/cmake/files.cmake)
 
 # Add sources to executable/library
 target_sources(${PROJECT_NAME} PRIVATE
+  "Src/robot_control.c"
   "Src/G474RE_Drivers/uart.c"
   "Src/Kobuki_Drivers/kobuki.c"
   "Src/ADC/adc.c"
