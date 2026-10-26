@@ -41,7 +41,7 @@ The diagonal opening in the storage unit that the AMU turns to face before drivi
 _Avoid_: door, gap
 
 **Deposit location**:
-One of the two spots inside the storage unit (1 or 2) where the package must be delivered, with the centre of the AMU facing it.
+One of the two spots inside the storage unit (1 or 2) where the package must be delivered, with the centre of the AMU facing it. It is independent of the Layout: all four combinations of bollards and deposit location can occur.
 _Avoid_: drop point, bay
 
 ## Phases
