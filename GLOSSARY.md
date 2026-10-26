@@ -94,3 +94,17 @@ _Avoid_: navigate, route-follow, PATHFIND 1 / PATHFIND 2 (it is one phase run tw
 **Storage** (phase):
 The phase in which the AMU turns to face the entrance and drives into the storage unit.
 _Avoid_: STORAGE when the storage unit itself is meant
+
+### Running the FSM
+
+**State**:
+One box of the FSM diagram, named in capitals (SEARCH, DETECT, SPIN). It holds an ordered list of Actions, and one phase such as Search can span several States.
+_Avoid_: Mode, Event
+
+**Action**:
+A condition paired with what to do when it holds: set a value the AMU remembers, or move to another State. A State lists its Actions in priority order.
+_Avoid_: Event, Transition, Rule, Trigger
+
+**Tick**:
+One pass of the FSM, in which the current State's Actions are checked once. There is one Tick per received Kobuki packet.
+_Avoid_: Step (already the Spin angle), Cycle, Loop
