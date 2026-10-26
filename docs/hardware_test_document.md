@@ -1,6 +1,6 @@
 # AMU hardware test document
 
-The checklist for the group member running the AMU on the platform. It covers everything the assignment documents and the existing code could not settle. Each item is either a **value to try** (Section 3) or a **check** (Section 4). Fill the blank Result cells and tables in the format in Section 1. Vocabulary follows [`GLOSSARY.md`](../GLOSSARY.md). This is work item 2 of the AMU FSM spec (#61), ticket #63.
+The checklist for the group member running the AMU on the platform. It covers everything the assignment documents and the existing code could not settle. Each item is either a **value to try** (§3) or a **check** (§4). Fill the blank Result cells and tables in the format in §1. Vocabulary follows [`GLOSSARY.md`](../GLOSSARY.md). This is work item 2 of the AMU FSM spec (#61), ticket #63.
 
 ## 1. How to report results
 
@@ -26,7 +26,7 @@ Return the filled-in copy of this file (commit it on a branch, or paste the tabl
 ### 2.1 Conventions
 
 - **Angles.** Positive is anticlockwise seen from above. This matches the gyro reading (`kobuki.angle`, hundredths of a degree, wrapping at ±180°) and the rotate setpoints (whole degrees).
-- **Bearing.** Used to place objects and to say where the sensor detected something. 0° is east (right-hand side of Figure 2) and bearings increase anticlockwise, so 90° is north. Seen from the start circle: A1 is at 90°, B1 at 0°, the storage unit lies in the north-east quadrant (0° to 90°), and the Figure 2 external bollards sit south-west (**Estimate**: roughly 200° to 220°, read off Figure 2).
+- **Bearing.** Used to place objects and to say where the sensor detected something. 0° is east (right-hand side of Figure 2) and bearings increase anticlockwise, so 90° is north. Seen from the start circle: A1 is at 90°, B1 at 0°, the storage unit lies at bearings 0° to 90° (north-east), and the Figure 2 external bollards sit south-west (**Estimate**: roughly 200° to 220°, read off Figure 2).
 - **Left and right** are as seen from behind the AMU, facing its direction of travel.
 - **Range** is `range_mm` from `Ultrasonic_Detect`. A detection is a range below 700 mm (`ULTRASONIC_DETECT_RANGE_MM`).
 - **Stop sample.** The range sample on which SEARCH first sees a detection and stops. The bollard has just entered the outer limit of the beam, not the centre line, so the stop-sample range may read longer than the on-axis distance to the bollard.
@@ -46,13 +46,13 @@ Return the filled-in copy of this file (commit it on a branch, or paste the tabl
 
 Two kinds of program are used:
 
-- **Bench program** (tag *Bench*). Temporarily replace `Src/main.c`, as the existing ultrasonic test does (`ultrasonic_test_every_2_seconds.txt`). Each loop calls `Kobuki_Read(&kobuki)`, which blocks until the next packet and so paces the loop. Add `Ultrasonic_Detect(&object)` where a check needs the sensor. Then call only the driver functions the check needs (`Kobuki_Drive`, `Kobuki_Rotate`, `Kobuki_Rotate_Angle_Setpoint` with `Kobuki_Rotate_Angle`, `Kobuki_Drive_Distance_Setpoint` with `Kobuki_Drive_Distance`). Do not use the `Robot_*` wrappers: they stop on any bumper. Read results from Watch variables with the program paused; there is no UART logging because the UART carries the Kobuki link.
+- **Bench program** (tag *Bench*). Temporarily replace `Src/main.c`, as the existing ultrasonic test does (`ultrasonic_test_every_2_seconds.txt`). Unlike that test, which never talks to the Kobuki, call `UART_Init()`, `ADC_Init()` and `Ultrasonic_Init()` once before the loop, as the practical's example does; without them the Kobuki link and the sensor read nothing. Each loop calls `Kobuki_Read(&kobuki)`, which blocks until the next packet and so paces the loop. Add `Ultrasonic_Detect(&object)` where a check needs the sensor. Then call only the driver functions the check needs (`Kobuki_Drive`, `Kobuki_Rotate`, `Kobuki_Rotate_Angle_Setpoint` with `Kobuki_Rotate_Angle`, `Kobuki_Drive_Distance_Setpoint` with `Kobuki_Drive_Distance`). Do not use the `Robot_*` wrappers: they stop on any bumper. Read results from Watch variables with the program paused; there is no UART logging because the UART carries the Kobuki link.
 - **Firmware** (tag *Firmware*). The FSM from work item 4. Build it with the first candidate for the constant under test, change one constant per run, and rebuild.
 
 ### 2.4 Safety
 
-- Keep a hand near B1 for every run.
-- For anything beside the ledge, have the second person ready to catch the AMU. This includes the start circle, which is only about 25 mm from the ledge (**Estimate**: the start circle is Ø350 mm in a 400 mm-wide lane, so (400 − 350) ÷ 2 = 25 mm each side, from Figure 2).
+- Keep a hand near button B1 (stop) for every run.
+- For anything beside the ledge, have the second person ready to catch the AMU. This includes the start circle, which is only about 25 mm from the ledge (**Estimate**: the start circle is Ø350 mm in a 400 mm-wide corridor, so (400 − 350) ÷ 2 = 25 mm each side, from Figure 2).
 - Never drive towards the ledge faster than the search speed (75 mm/s) in a bench program.
 
 ### 2.5 Suggested order
@@ -70,22 +70,22 @@ One row per value that could not be verified from the assignment documents. Chan
 | ID | Value | What it controls | Why it could not be verified | Candidates | How to measure | Result |
 | --- | --- | --- | --- | --- | --- | --- |
 | V1 | Path speed | The speed driven along both corridors, so the section times and how far the AMU overruns after the front cliff. | The brief only caps speed at 150 mm/s (the driver saturates at exactly 150, so the constant must be below it). The best value trades the 30 s and 60 s section targets against overrun and correction margin in a corridor only slightly wider than the AMU. | 80, 100, 120 mm/s.<br>**Estimate:** the path from the start circle to section 3 is about 2 m (about 1.9 m in Layout A and 2.0 m in Layout B, scaled off Figure 2, ±10 %), so driving alone takes about 25 s at 80, 20 s at 100 and 17 s at 120 mm/s, before the sweep (about 10 s, see C3). | *Bench:* mark 1000 mm on the floor, call `Kobuki_Drive(candidate)` straight, time the AMU between the marks, 3 runs per candidate; speed = 1000 mm ÷ time. *Firmware:* then record the overrun after the front cliff (C10) and the times (C11). | |
-| V2 | Storage wall correction angle | How far the AMU turns away from the storage wall after a bumper hit on that side, before it returns to the corridor heading. | No document gives it. It depends on the bumper geometry and on the corridor being only about 50 mm wider than the AMU (400 mm lane, Ø350 mm AMU). | 5°, 10°, 15°, 20°. **Estimate:** the 5° to 20° range is a starting range from the spec, not derived from any document; start at 10°. | *Firmware, first corridor:* place the AMU at the start of the corridor, pointed slightly towards the storage wall so it hits within about a second. Per run record: does the bumper bit clear by the end of the turn; the heading error after REALIGN (gyro, degrees); how many corrections the corridor needed; whether it reached the front cliff. 5 runs per candidate, in both a Layout A and a Layout B corridor (mirror images, but the hardware is not symmetric). | |
+| V2 | Storage wall correction angle | How far the AMU turns away from the storage wall after a bumper hit on that side, before it returns to the corridor heading. | No document gives it. It depends on the bumper geometry and on the corridor being only about 50 mm wider than the AMU (400 mm corridor, Ø350 mm AMU). | 5°, 10°, 15°, 20°. **Estimate:** the 5° to 20° range is a starting range from the spec, not derived from any document; start at 10°. | *Firmware, first corridor:* place the AMU at the start of the corridor, pointed slightly towards the storage wall so it hits within about a second. Per run record: does the bumper bit clear by the end of the turn; the heading error after REALIGN (gyro, degrees); how many corrections the corridor needed; whether it reached the front cliff. 5 runs per candidate, in both a Layout A and a Layout B corridor (mirror images, but the hardware is not symmetric). | |
 | V3 | Ledge correction angle | How far the AMU turns away from the ledge after the cliff sensor on that side fires, before it returns to the corridor heading. | No document gives it. Too small and the AMU may not clear the ledge; too large and it swings into the storage wall. | 5°, 10°, 15°, 20°. **Estimate:** as V2, a starting range from the spec; start at 10°. | *Firmware, first corridor, second person at the ledge:* place the AMU pointed slightly towards the ledge. Per run record: does the cliff bit clear by the end of the turn; did the AMU stay on the platform; did the correction then hit the storage wall (bumper bit set); the heading error after REALIGN. 5 runs per candidate, both layouts. | |
-| V4 | Layout split range | The range that separates a near blocking bollard (Layout B) from a far one (Layout A) at the SEARCH stop. | Depends on the sensor's forward offset `s` and on the beam pattern at the stop sample, neither of which is in the documents. | **Estimate:** about 475 mm − `s`. Derived from the midpoint of B1 (about 400 mm) and A1 (about 555 mm) surface distances from the start centre, (400 + 555) ÷ 2 = 477.5 mm, rounded to about 475 mm, where each is the Figure 2 centre-to-centre distance (about 445 and 600 mm) less the 45 mm bollard radius; the sensor measures from its own face, so subtract `s`. Try 450 − `s`, 475 − `s`, 500 − `s`. | Do C4 first. Final value: midway between the highest B1 stop-sample range and the lowest A1 stop-sample range. Check every C4 stop then classifies correctly. | |
-| V5 | Layout minimum range | The lowest stop-sample range still accepted as Layout B. Anything below is "none", which stops the run. | Depends on the sensor's minimum reportable range, the beam pattern and whether the nearest storage wall corner is seen (C5); none are in the documents. | Lowest B1 stop-sample range from C4 minus 25, 50 or 75 mm. **Estimate** for illustration only: with `s` = 0 the B1 range is about 400 mm, giving 375, 350 or 325 mm. | After C5, decide whether the nearest storage wall corner (**Estimate:** about 283 mm, from the spec) should fall below this minimum (and so stop the run). Check no C4 stop on B1 falls below it. | |
+| V4 | Layout split range | The range that separates a near blocking bollard (Layout B) from a far one (Layout A) at the SEARCH stop. | Depends on the sensor's forward offset `s` and on the beam pattern at the stop sample, neither of which is in the documents. | **Estimate:** about 475 mm − `s`. Derived from the midpoint of B1 (about 400 mm) and A1 (about 555 mm) surface distances from the start circle centre, (400 + 555) ÷ 2 = 477.5 mm, rounded to about 475 mm, where each is the Figure 2 centre-to-centre distance (about 445 and 600 mm) less the 45 mm bollard radius; the sensor measures from its own face, so subtract `s`. Try 450 − `s`, 475 − `s`, 500 − `s`. | Do C4 first. Final value: midway between the highest B1 stop-sample range and the lowest A1 stop-sample range. Check every C4 stop then classifies correctly. | |
+| V5 | Layout minimum range | The lowest stop-sample range still accepted as Layout B. Anything below is "none", which stops the run. | Depends on the sensor's minimum reportable range, the beam pattern and whether the nearest storage wall corner is seen (C5); none are in the documents. | Lowest B1 stop-sample range from C4 minus 25, 50 or 75 mm. **Estimate** for illustration only: with `s` = 0 the B1 range is about 400 mm, giving 375, 350 or 325 mm. | After C5, decide whether the nearest storage wall corner (**Estimate:** about 283 mm, derived in C5) should fall below this minimum (and so stop the run). Check no C4 stop on B1 falls below it. | |
 | V6 | Layout maximum range | The highest stop-sample range still accepted as Layout A. Anything above, up to the 700 mm detect range, is "none". | As V5, from the far side. | Highest A1 stop-sample range from C4 plus 25, 50 or 75 mm, never above 700 mm. **Estimate** for illustration only: with `s` = 0 the A1 range is about 555 mm, giving 580, 605 or 630 mm. | Check no C4 stop on A1 exceeds it. Check what C6 gives for the external bollards at 400–500 mm: they may fall inside a band. | |
-| V7 | Storage entry distance | How far the AMU drives into the storage unit after the STORAGE turn. | Depends on where the AMU stops and how it faces the entrance; Figure 2 only gives the geometry. | 600, 700, 800 mm. **Estimate:** about 740 mm, derived from about 560 mm from the stop point to the entrance line (read off Figure 2) plus the AMU radius of about 175 mm (the start circle is Ø350 mm); 560 + 175 ≈ 735. | *Firmware:* run the STORAGE turn then the drive-in, 3 runs per candidate in each layout. Per run: is the entire AMU inside the storage unit (tape from the entrance line to the AMU's rear; 2 % of the marks depend on it); any bumper bit set; the range to D1 and D2 from the final position, using `Ultrasonic_Detect` (both should read below 700 mm, which DEPOSIT needs). | |
+| V7 | Storage entry distance | How far the AMU drives into the storage unit after the STORAGE turn. | Depends on where the AMU stops and how it faces the entrance; Figure 2 only gives the geometry. | 600, 700, 800 mm. **Estimate:** about 740 mm. Derived from about 560 mm from the stop point to the entrance line plus the AMU radius of about 175 mm (the start circle is Ø350 mm): 560 + 175 = 735, rounded to about 740 mm. The 560 mm figure is inherited from the spec (#61), whose working is not recorded, so confirm it with the tape measure on the platform. | *Firmware:* run the STORAGE turn then the drive-in, 3 runs per candidate in each layout. Per run: is the entire AMU inside the storage unit (tape from the entrance line to the AMU's rear; 2 % of the marks depend on it); any bumper bit set; the range to deposit locations D1 and D2 from the final position, using `Ultrasonic_Detect` (both should read below 700 mm, which DEPOSIT needs). | |
 
 ## 4. Checks
 
-Each check says what to do and what to record. Tag shows the program needed (Section 2.3).
+Each check says what to do and what to record. Tag shows the program needed (§2.3).
 
 ### C1. Bumper, cliff and wheel drop bits (Bench)
 
 **Question.** Which bit does each sensor set in `kobuki.bumper`, `kobuki.cliff` and `kobuki.wheeldrop`, and does `kobuki.button` match the practical?
 
-**Estimate (expected, not measured).** Right 0x01, centre 0x02, left 0x04 for both the bumper and cliff bits. Source: the spec, to be confirmed. Buttons: B0 0x01, B1 0x02, B2 0x04 (the practical's button codes).
+**Estimate (expected, not measured).** Right 0x01, centre 0x02, left 0x04 for both the bumper and cliff bits. Taken from the spec, which gives this as the expected bit order (right, centre, left) and marks it to be confirmed; the Kobuki bytestream document that would settle it is not in the repo. Buttons: B0 0x01, B1 0x02, B2 0x04 (the practical's button codes; note these are Kobuki buttons, not the blocking bollards B1 and B2).
 
 **Procedure.** Watch `kobuki.bumper`, `kobuki.cliff`, `kobuki.wheeldrop` and `kobuki.button`.
 
@@ -93,7 +93,7 @@ Each check says what to do and what to record. Tag shows the program needed (Sec
 2. Cliff sensors, at the ledge on the platform with the second person holding the AMU: with the motors idle, ease the AMU towards the ledge so only one cliff sensor at a time passes over it (right, then centre, then left).
 3. Front cliff signature: drive straight at the ledge with `Kobuki_Drive(SEARCH_SPEED)` and stop on the first non-zero cliff byte. Record the cliff byte on that loop and the next 5 loops (is it the centre bit alone, or others too?). This defines what "front cliff" means in the firmware.
 4. Lift the AMU clear of the floor; then lift one side at a time. Any non-zero `wheeldrop` must stop the AMU.
-5. Press B0, B1 and B2.
+5. Press buttons B0, B1 and B2.
 
 **Record.**
 
@@ -109,7 +109,7 @@ Each check says what to do and what to record. Tag shows the program needed (Sec
 | Front cliff signature (loop 0 to 5) | | |
 | Wheel drop, lifted clear | | |
 | Wheel drop, one side lifted | | |
-| B0 / B1 / B2 | | |
+| Buttons B0 / B1 / B2 | | |
 
 ### C2. Loop period (Bench)
 
@@ -170,7 +170,7 @@ Then work out, over the trials that faced the blocking bollard: spread = highest
 
 **Question.** Does the ultrasonic sensor detect the storage walls from the start circle, and from which bearings?
 
-**Estimate.** The nearest storage wall corner is about 283 mm from the start centre at about 45°, and the storage walls are inside the detect range for bearings of about 0° to 90°, if the sensor sees low storage walls. Source: the spec, scaled off Figure 2.
+**Estimate.** The nearest storage wall corner is about 283 mm from the start circle centre at about 45°, and the storage walls are inside the detect range for bearings of about 0° to 90°, if the sensor sees low storage walls. Derived from Figure 2: the storage unit's left storage wall and bottom storage wall each stand 400 mm from the ledge, while the start circle centre is 200 mm from each ledge (a Ø350 mm circle in a 400 mm-wide corridor), so the corner is about 200 mm east and 200 mm north: √(200² + 200²) ≈ 283 mm at 45°.
 
 **Procedure.** Remove every bollard. Put the AMU on the start circle facing east (0°) and note the gyro reading `g0`; bearing = gyro − `g0`, wrapped to ±180°. Spin anticlockwise at the search speed for two laps. Each time `detected` goes from 0 to 1 and back, record the bearing, and note the lowest range during each detection.
 
@@ -189,11 +189,11 @@ If the range is pinned to one value over a span of bearings (for example 300 mm)
 
 **Question.** Does the sensor see an external bollard, at what range, and what would the layout rule do with it?
 
-**Estimate.** The Figure 2 examples sit about 400 to 500 mm from the start centre, south-west (bearings of about 200° to 220°), which is the same range as B1. Source: the spec, scaled off Figure 2.
+**Estimate.** The Figure 2 examples sit about 400 to 500 mm from the start circle centre, south-west (bearings of about 200° to 220°), which is the same range as B1. Source: the spec, scaled off Figure 2.
 
 **Procedure.**
 
-1. Remove the other bollards. Stand one bollard beyond the ledge at bearing 210°, at 300, 400, 450, 500, 600 and 700 mm from the start centre. Repeat at bearings 180° and 240°. For each, spin as in C4 and record whether it is detected and the stop-sample range.
+1. Remove the other bollards. Stand one bollard beyond the ledge at bearing 210°, at 300, 400, 450, 500, 600 and 700 mm from the start circle centre. Repeat at bearings 180° and 240°. For each, spin as in C4 and record whether it is detected and the stop-sample range.
 2. Put the Layout A blocking bollards back, and place both external bollards as in Figure 2. Repeat the C4 procedure with at least 10 random start headings. Record how often the stop faced an external bollard and the classification the current candidate bands would give.
 
 **Record.**
@@ -214,7 +214,7 @@ If the range is pinned to one value over a span of bearings (for example 300 mm)
 
 **Procedure.**
 
-**a. Spin on the start circle (Bench).** Second person ready. Spin at the search speed for three laps anticlockwise and three clockwise, watching `kobuki.cliff` and `kobuki.bumper`. Optionally repeat with the AMU placed 20 mm off-centre towards the nearest ledge, since the real placement will not be perfect.
+**a. Spin on the start circle (Bench).** Second person ready. Spin at the search speed for three laps anticlockwise and three clockwise, watching `kobuki.cliff` and `kobuki.bumper`.
 
 **b. Turns beside the ledge (Firmware).** At the end of the first corridor, after the front cliff stop, run the 90° turn (anticlockwise in Layout A, clockwise in Layout B). At the end of the second corridor, run the 135° STORAGE turn. Also run the V2 and V3 correction turns. Record the cliff and bumper bytes during each turn.
 
@@ -224,7 +224,6 @@ If the range is pinned to one value over a span of bearings (for example 300 mm)
 | --- | --- | --- | --- |
 | a. Start circle, anticlockwise | | | |
 | a. Start circle, clockwise | | | |
-| a. Start circle, off-centre (optional) | | | |
 | b. First corridor end, 90° turn | | | |
 | b. STORAGE turn, 135° | | | |
 | b. Storage wall correction turn | | | |
