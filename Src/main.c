@@ -5,32 +5,24 @@
 
 #include "stm32g4xx.h"
 #include "uart.h"
+#include "adc.h"
+#include "ultrasonic.h"
 #include "kobuki.h"
-#include "robot_control.h"
+#include "fsm.h"
+#include "fsm_data.h"
+#include "fsm_states.h"
 
 int main(void)
 {
-    Kobuki_Typedef kobuki;
-    Kobuki_LED_Enum led_1 = GREEN;
-
     UART_Init();
-    Robot_Init();
-    Kobuki_Update_LEDs(led_1, OFF);
+    ADC_Init();
+    Ultrasonic_Init();
 
-    // Move forward 1 metre
-    Robot_Move(1000, 200);
+    FSM_Init(fsm_states, FSM_ST_COUNT, FSM_ST_IDLE);
 
-    while (1)
-    {
-        // Update movement and bumper sensors
-        Robot_Update(&kobuki);
-
-        // Stop if a bumper is pressed
-        if (Robot_BumperPressed())
-        {
-            Robot_Stop();
-            led_1 = RED;
-            Kobuki_Update_LEDs(led_1, OFF);
-        }
+    while (1) {
+        // Kobuki_Read() waits for the next Kobuki packet, so this loop makes one Tick per packet.
+        Kobuki_Read(&fsm_data.kobuki);
+        FSM_Tick();
     }
 }

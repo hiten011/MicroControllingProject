@@ -44,7 +44,8 @@ jobs:
             --suppress=missingInclude --suppress=missingIncludeSystem \
             --error-exitcode=1 \
             -I Src/ADC -I Src/G474RE_Drivers -I Src/Kobuki_Drivers -I Src/Ultrasonic -I Src/stm_helper \
-            Src/main.c Src/ADC Src/G474RE_Drivers Src/Kobuki_Drivers Src/Ultrasonic Src/stm_helper
+            -I Src/FSM -I Src/FSM/states \
+            Src/main.c Src/ADC Src/G474RE_Drivers Src/Kobuki_Drivers Src/Ultrasonic Src/stm_helper Src/FSM
 
       # Style / performance / portability findings show up as annotations but do not fail the job.
       - name: cppcheck (advisory)
@@ -53,4 +54,5 @@ jobs:
             --suppress=missingInclude --suppress=missingIncludeSystem \
             --template='::warning file={file},line={line},title=cppcheck {id}::{message}' \
             -I Src/ADC -I Src/G474RE_Drivers -I Src/Kobuki_Drivers -I Src/Ultrasonic -I Src/stm_helper \
-            Src/main.c Src/ADC Src/G474RE_Drivers Src/Kobuki_Drivers Src/Ultrasonic Src/stm_helper
+            -I Src/FSM -I Src/FSM/states \
+            Src/main.c Src/ADC Src/G474RE_Drivers Src/Kobuki_Drivers Src/Ultrasonic Src/stm_helper Src/FSM
