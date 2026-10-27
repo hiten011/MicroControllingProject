@@ -60,7 +60,7 @@ The fixed angle the AMU turns in one Spin.
 _Avoid_: Increment
 
 **Sweep**:
-One full 360 degree revolution of Steps without a Detection. The Search gives up after a fixed number of Sweeps.
+One full 360 degree revolution of Steps. The Search no longer counts Sweeps or gives up on a Sweep limit; DETECT and SPIN keep running until a Detection.
 _Avoid_: Lap, rotation
 
 ### Aligning
