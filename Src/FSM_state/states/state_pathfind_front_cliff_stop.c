@@ -7,13 +7,13 @@ static void front_cliff_stop_init(void)
     Kobuki_Drive(STOP);
 }
 
-static const FSM_Action front_cliff_stop_to_storage = {
+static const FSM_Action front_cliff_stop_to_storage_turn = {
     .next_state = FSM_ST_STORAGE_TURN,
 };
 
 static const FSM_Action *const front_cliff_stop_actions[] = {
     &action_fault_b1_wheeldrop,
-    &front_cliff_stop_to_storage,
+    &front_cliff_stop_to_storage_turn,
 };
 
 const FSM_State state_pathfind_front_cliff_stop = {
