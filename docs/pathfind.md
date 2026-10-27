@@ -2,7 +2,7 @@
 
 How the AMU drives the two corridors while staying clear of the storage wall and the ledge. Terms match [`GLOSSARY.md`](../GLOSSARY.md). The full diagram is [`amu_fsm.drawio`](amu_fsm.drawio) (preview: [`amu_fsm_preview.png`](amu_fsm_preview.png)).
 
-Pathfind runs once per corridor (`corridor = 1`, then `corridor = 2` after Corridor turn). Layout A has the storage wall on the right and the ledge on the left; Layout B is the mirror image.
+Pathfind runs once per corridor (`corridor = 1`, then `corridor = 2` after Corridor turn). With Orient A = −90° / B = +90°, Layout A has the storage wall on the left and the ledge on the right; Layout B is the mirror image.
 
 ```mermaid
 flowchart TB
@@ -16,7 +16,7 @@ flowchart TB
         turn["<b>Corridor turn</b><br/>A +90° / B −90°"]
         stop["<b>Corridor stop</b><br/>stop once"]
         reverse["<b>Reverse</b><br/>back 50 mm"]
-        rotate["<b>Rotate</b><br/>A +10° / B −10°"]
+        rotate["<b>Rotate</b><br/>nudge away from the hit side"]
     end
 
     orient -->|"rotation complete<br/>corridor = 1"| drive
@@ -41,7 +41,7 @@ flowchart TB
 | --- | --- |
 | **Drive** | Drive forward along the corridor heading |
 | **Reverse** | Back a fixed distance after a wall bumper or ledge cliff |
-| **Rotate** | Fixed layout nudge after Reverse (A +10°, B −10°) |
+| **Rotate** | Turn `pathfind_recover_deg` after Reverse, away from the side that was hit |
 | **Corridor turn** | End of corridor 1: 90° onto corridor 2, latch new heading |
 | **Corridor stop** | End of corridor 2: stop, then leave Pathfind into Storage Turn |
 
@@ -63,9 +63,10 @@ Each Pathfind case in `Src/main.c` checks conditions in priority order and takes
 
 - **Do:** `Kobuki_Drive(PATHFIND_DRIVE_SPEED)` (100 mm/s).
 - **Corridor length:** signed wheel travel from `corridor_start_distance` reaches the Figure 2 centreline length for this layout and corridor (A: 1200 then 1400 mm; B: 1400 then 1200 mm). Latched at Orient → Drive and Corridor turn → Drive; not re-latched on Rotate → Drive. Reverse subtracts from the total.
-- **Storage-wall bumper:** Layout A right (`0x01`), Layout B left (`0x04`). Ledge-side bumper is ignored.
-- **Ledge cliff:** Layout A left (`0x04`), Layout B right (`0x01`). Storage-wall-side cliff is ignored.
+- **Storage-wall bumper:** Layout A left (`0x04`), Layout B right (`0x01`). Ledge-side bumper is ignored.
+- **Ledge cliff:** Layout A right (`0x01`), Layout B left (`0x04`). Storage-wall-side cliff is ignored.
 - **Ignored in Drive:** centre cliff, ledge-side bumper, storage-wall-side cliff, centre bumper.
+- On either hit, Drive latches `pathfind_recover_deg` before Reverse: wall uses `PATHFIND_ROTATE_*` (away from the storage wall); ledge uses the negation (away from the ledge).
 
 ## Reverse
 
@@ -80,7 +81,7 @@ Entered from Drive when the storage-wall bumper or ledge cliff fires.
 
 Entered from Reverse when the back-off finishes.
 
-- **Entry:** fixed angle `PATHFIND_ROTATE_A_DEG` (+10) or `PATHFIND_ROTATE_B_DEG` (−10). Does not use `robot.heading`.
+- **Entry:** `robot.pathfind_recover_deg`, latched when Drive entered Reverse. Wall hits use `PATHFIND_ROTATE_A_DEG` (−10) or `PATHFIND_ROTATE_B_DEG` (+10); ledge hits use the negation. Does not use `robot.heading`.
 - **Do:** `Kobuki_Rotate_Angle` until `rotation_complete`.
 - **Then:** return to **Drive**. There is no matching +50 mm forward resume after Rotate.
 - **Sensors:** same as Reverse: bumper and cliff are ignored; B1 or wheeldrop → Fault.
@@ -100,7 +101,7 @@ If Drive still sees the wall bumper or ledge cliff on the next packet after Rota
 | `PATHFIND_CORRIDOR_1_A_MM` / `_2_A_MM` | 1200 / 1400 | Drive (Layout A) |
 | `PATHFIND_CORRIDOR_1_B_MM` / `_2_B_MM` | 1400 / 1200 | Drive (Layout B) |
 | `PATHFIND_REVERSE_MM` | 50 | Reverse |
-| `PATHFIND_ROTATE_A_DEG` / `_B_DEG` | +10 / −10 | Rotate |
+| `PATHFIND_ROTATE_A_DEG` / `_B_DEG` | −10 / +10 | Drive latches into `pathfind_recover_deg` (wall); ledge uses the negation |
 | `PATHFIND_CORNER_A_DEG` / `_B_DEG` | +90 / −90 | Corridor turn |
 
 Angles are in degrees, + = anticlockwise (`Kobuki_Rotate`: +ve is CCW). All values are tunable in `Src/Helper/helper.h`.
