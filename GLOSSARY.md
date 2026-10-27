@@ -112,7 +112,7 @@ The State in which the AMU turns a fixed angle away from the ledge after that si
 _Avoid_: ledge correct, cliff turn
 
 **Realign**:
-The State in which the AMU reverses a fixed distance, then turns the shortest way back to the corridor heading after a Wall hit or Ledge hit.
+The State in which the AMU reverses a fixed distance, turns the shortest way back to the corridor heading, then drives that same distance forward again after a Wall hit or Ledge hit.
 _Avoid_: re-centre, recover heading
 
 **Front-cliff turn**:

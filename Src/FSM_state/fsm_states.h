@@ -43,7 +43,7 @@
 #define FSM_PATHFIND_LEDGE_B_DEG (-10)  // CW off the ledge
 #define FSM_PATHFIND_CORNER_A_DEG 90    // ACW onto the second corridor
 #define FSM_PATHFIND_CORNER_B_DEG (-90) // CW onto the second corridor
-#define FSM_PATHFIND_REALIGN_REVERSE_MM 50 // Fixed back-off before heading rotate
+#define FSM_PATHFIND_REALIGN_REVERSE_MM 50 // Back-off and matching forward resume
 
 // Storage. Tunable on hardware; values match docs/amu_fsm.drawio.
 #define FSM_STORAGE_TURN_A_DEG 135   // ACW to face the Entrance
