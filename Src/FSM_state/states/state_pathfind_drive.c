@@ -1,20 +1,21 @@
 #include "action_fault.h"
 #include "fsm_states.h"
 
-// Front centre cliff: end of the current corridor.
-static bool front_cliff(void)
+// Corridor length reached: net forward mm from corridor start (Reverse subtracts).
+static bool corridor_length_reached(void)
 {
-    return (fsm_data.kobuki.cliff & FSM_SIDE_CENTRE) != 0;
+    return Kobuki_Distance_Delta_Mm(fsm_data.corridor_start_distance, fsm_data.kobuki.distance) >=
+           FSM_PATHFIND_CORRIDOR_MM;
 }
 
-static bool front_cliff_corridor_1(void)
+static bool corridor_1_done(void)
 {
-    return front_cliff() && fsm_data.corridor == 1;
+    return corridor_length_reached() && fsm_data.corridor == 1;
 }
 
-static bool front_cliff_corridor_2(void)
+static bool corridor_2_done(void)
 {
-    return front_cliff() && fsm_data.corridor == 2;
+    return corridor_length_reached() && fsm_data.corridor == 2;
 }
 
 // Storage-wall bumper: Layout A right, Layout B left. Ledge-side bumper is ignored.
@@ -36,14 +37,14 @@ static void drive_forward(void)
     Kobuki_Drive(FSM_PATHFIND_DRIVE_SPEED);
 }
 
-static const FSM_Action drive_to_front_cliff_turn = {
-    .condition = front_cliff_corridor_1,
-    .next_state = FSM_ST_PATHFIND_FRONT_CLIFF_TURN,
+static const FSM_Action drive_to_corridor_turn = {
+    .condition = corridor_1_done,
+    .next_state = FSM_ST_PATHFIND_CORRIDOR_TURN,
 };
 
-static const FSM_Action drive_to_front_cliff_stop = {
-    .condition = front_cliff_corridor_2,
-    .next_state = FSM_ST_PATHFIND_FRONT_CLIFF_STOP,
+static const FSM_Action drive_to_corridor_stop = {
+    .condition = corridor_2_done,
+    .next_state = FSM_ST_PATHFIND_CORRIDOR_STOP,
 };
 
 static const FSM_Action drive_to_reverse_wall = {
@@ -61,11 +62,11 @@ static const FSM_Action drive_on = {
     .effect = drive_forward,
 };
 
-// Priority matches the diagram: front cliff, then wall bumper, then ledge cliff.
+// Priority: corridor length, then wall bumper, then ledge cliff. Centre cliff ignored.
 static const FSM_Action *const drive_actions[] = {
     &action_fault_b1_wheeldrop,
-    &drive_to_front_cliff_turn,
-    &drive_to_front_cliff_stop,
+    &drive_to_corridor_turn,
+    &drive_to_corridor_stop,
     &drive_to_reverse_wall,
     &drive_to_reverse_ledge,
     &drive_on,
