@@ -32,8 +32,8 @@
 #define FSM_ALIGNMENT_OFFSET_DEG 10
 
 // Orient: Layout A turns CW to the bottom corridor; Layout B turns ACW to the left corridor.
-#define FSM_ORIENT_A_DEG (-90)
-#define FSM_ORIENT_B_DEG 90
+#define FSM_ORIENT_A_DEG 90
+#define FSM_ORIENT_B_DEG (-90)
 
 // Pathfind. Tunable on hardware; values match docs/amu_fsm.drawio.
 #define FSM_PATHFIND_DRIVE_SPEED 100
@@ -48,7 +48,7 @@
 // Storage. Tunable on hardware; values match docs/amu_fsm.drawio.
 #define FSM_STORAGE_TURN_A_DEG 135   // ACW to face the Entrance
 #define FSM_STORAGE_TURN_B_DEG (-135) // CW to face the Entrance
-#define FSM_STORAGE_DRIVE_IN_MM 740  // Through the Entrance into the storage unit
+#define FSM_STORAGE_DRIVE_IN_MM 1000  // Through the Entrance into the storage unit
 
 // Kobuki angle: one tick is 0.01 degree and the reading wraps at +/-180 degrees.
 #define FSM_ANGLE_TICKS_PER_DEG   100
