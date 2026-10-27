@@ -62,7 +62,7 @@ Each State lists its Actions in priority order and the first true one fires (one
 ## Drive
 
 - **Do:** `Kobuki_Drive(FSM_PATHFIND_DRIVE_SPEED)` (100 mm/s).
-- **Corridor length:** signed wheel travel from `corridor_start_distance` ≥ `FSM_PATHFIND_CORRIDOR_MM` (1200 mm). Latched at Orient → Drive and Corridor turn → Drive; not re-latched on Rotate → Drive. Reverse subtracts from the total.
+- **Corridor length:** signed wheel travel from `corridor_start_distance` reaches the Figure 2 centreline for that leg (A: 1200 mm then 1400 mm; B: 1400 mm then 1200 mm). Latched at Orient → Drive and Corridor turn → Drive; not re-latched on Rotate → Drive. Reverse subtracts from the total.
 - **Storage-wall bumper:** Layout A right (`0x01`), Layout B left (`0x04`). Ledge-side bumper is ignored.
 - **Ledge cliff:** Layout A left (`0x04`), Layout B right (`0x01`). Storage-wall-side cliff is ignored.
 - **Ignored in Drive:** centre cliff, ledge-side bumper, storage-wall-side cliff, centre bumper.
@@ -97,7 +97,8 @@ If Drive still sees the wall bumper or ledge cliff on the next Tick after Rotate
 | Macro | Value | Used by |
 | --- | --- | --- |
 | `FSM_PATHFIND_DRIVE_SPEED` | 100 | Drive |
-| `FSM_PATHFIND_CORRIDOR_MM` | 1200 | Drive (end of corridor) |
+| `FSM_PATHFIND_CORRIDOR_1_A_MM` / `_2_A_MM` | 1200 / 1400 | Drive (Layout A legs) |
+| `FSM_PATHFIND_CORRIDOR_1_B_MM` / `_2_B_MM` | 1400 / 1200 | Drive (Layout B legs) |
 | `FSM_PATHFIND_REVERSE_MM` | 50 | Reverse |
 | `FSM_PATHFIND_ROTATE_A_DEG` / `_B_DEG` | +10 / −10 | Rotate |
 | `FSM_PATHFIND_CORNER_A_DEG` / `_B_DEG` | +90 / −90 | Corridor turn |

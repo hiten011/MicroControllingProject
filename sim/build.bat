@@ -118,9 +118,9 @@ for %%O in ("%OBJ%\*.o") do (
 rem Linking also uses a response file to avoid command-line limits.
 echo Linking simulator ...
 if /i "%MODE%"=="shim" (
-    gcc -std=gnu11 %SIMOPT% -DSTM32G474xx -Wall -Wno-int-to-pointer-cast -Wno-format-truncation @"%INCS%" -I"%SIM%\src" "%SIM%\src\sim_main.c" "%SIM%\src\sim_mmio.c" "%SIM%\src\sim_periph.c" "%SIM%\src\sim_robot.c" "%EXTRA%" @"%OBS%" -o "%EXE%" -lm
+    gcc -std=gnu11 %SIMOPT% -DSTM32G474xx -Wall -Wno-int-to-pointer-cast -Wno-format-truncation @"%INCS%" -I"%SIM%\src" "%SIM%\src\sim_main.c" "%SIM%\src\sim_mmio_win.c" "%SIM%\src\sim_periph.c" "%SIM%\src\sim_robot.c" "%SIM%\src\sim_host_win.c" "%EXTRA%" @"%OBS%" -o "%EXE%" -lm
 ) else (
-    gcc -std=gnu11 %SIMOPT% -DSTM32G474xx -Wall -Wno-int-to-pointer-cast -Wno-format-truncation @"%INCS%" -I"%SIM%\src" "%SIM%\src\sim_main.c" "%SIM%\src\sim_mmio.c" "%SIM%\src\sim_periph.c" "%SIM%\src\sim_robot.c" @"%OBS%" -o "%EXE%" -lm
+    gcc -std=gnu11 %SIMOPT% -DSTM32G474xx -Wall -Wno-int-to-pointer-cast -Wno-format-truncation @"%INCS%" -I"%SIM%\src" "%SIM%\src\sim_main.c" "%SIM%\src\sim_mmio_win.c" "%SIM%\src\sim_periph.c" "%SIM%\src\sim_robot.c" "%SIM%\src\sim_host_win.c" @"%OBS%" -o "%EXE%" -lm
 )
 if errorlevel 1 (
     echo Link failed.

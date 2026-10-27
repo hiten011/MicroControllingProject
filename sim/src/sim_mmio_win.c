@@ -1,5 +1,5 @@
 /*
- * sim_mmio.c - put the STM32 peripheral registers at their real addresses.
+ * sim_mmio_win.c - put the STM32 peripheral registers at their real addresses.
  *
  * stm32g474xx.h defines e.g. USART3 as ((USART_TypeDef *)0x40004800).
  * We VirtualAlloc() memory at those exact addresses so the student's
