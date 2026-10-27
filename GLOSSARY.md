@@ -132,7 +132,7 @@ The State in which the AMU turns on the spot from the second-corridor heading to
 _Avoid_: face-entrance, Rotate (Pathfind), STORAGE_TURN (code id)
 
 **Drive-in**:
-The State in which the AMU drives a fixed distance through the Entrance into the storage unit.
+The State in which the AMU drives a fixed distance through the Entrance into the storage unit. Any bumper ends it early, in Deposit.
 _Avoid_: enter, DRIVE_IN (code id), Drive (already the Pathfind State)
 
 **Deposit** (State):
@@ -140,6 +140,14 @@ The State after Drive-in in which the AMU stops inside the storage unit. Deposit
 _Avoid_: DEPOSIT (code id), drop-off (the place is Deposit location)
 
 ### Running the FSM
+
+**Idle**:
+The State in which the AMU holds still until B0 (start) is pressed. It is the first State, and the State every run returns to. Leaving it forgets the last Search.
+_Avoid_: Standby, Ready, IDLE (code id)
+
+**Fault**:
+The State the AMU stops in when it must not go on: B1 pressed, a wheel dropped, an unexpected bumper or cliff (which ones depends on the State), or a Search that gives up. It stops the motors, then returns to Idle on the next Tick. The diagram calls it STOP / FAULT.
+_Avoid_: Error, Stop, E-stop
 
 **State**:
 One box of the FSM diagram, named in capitals (SEARCH, DETECT, SPIN). It holds an ordered list of Actions, and one phase such as Search can span several States.

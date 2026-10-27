@@ -86,7 +86,7 @@ checks) and compiles at `-O0`. Then:
 
 ```
 gdb --args sim\kobuki_sim_dbg.exe --layout B --heading 0 --seed 116
-(gdb) break Classify_Path
+(gdb) break Layout_From_Range
 (gdb) run
 (gdb) print range_mm
 (gdb) print rb            # the simulator's robot state (pose, sensors, time)
