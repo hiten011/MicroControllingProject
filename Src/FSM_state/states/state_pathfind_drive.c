@@ -17,17 +17,17 @@ static bool front_cliff_corridor_2(void)
     return front_cliff() && fsm_data.corridor == 2;
 }
 
-// Storage-wall bumper: Layout A left, Layout B right. Ledge-side bumper is ignored.
+// Storage-wall bumper: Layout A right, Layout B left. Ledge-side bumper is ignored.
 static bool storage_wall_bumper(void)
 {
-    uint8_t mask = (fsm_data.layout == FSM_LAYOUT_A) ? FSM_SIDE_LEFT : FSM_SIDE_RIGHT;
+    uint8_t mask = (fsm_data.layout == FSM_LAYOUT_A) ? FSM_SIDE_RIGHT : FSM_SIDE_LEFT;
     return (fsm_data.kobuki.bumper & mask) != 0;
 }
 
-// Ledge cliff: Layout A right, Layout B left. Storage-wall-side cliff is ignored.
+// Ledge cliff: Layout A left, Layout B right. Storage-wall-side cliff is ignored.
 static bool ledge_cliff(void)
 {
-    uint8_t mask = (fsm_data.layout == FSM_LAYOUT_A) ? FSM_SIDE_RIGHT : FSM_SIDE_LEFT;
+    uint8_t mask = (fsm_data.layout == FSM_LAYOUT_A) ? FSM_SIDE_LEFT : FSM_SIDE_RIGHT;
     return (fsm_data.kobuki.cliff & mask) != 0;
 }
 
