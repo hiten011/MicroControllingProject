@@ -12,6 +12,11 @@
 #define FSM_BUTTON_B0 0x01U
 #define FSM_BUTTON_B1 0x02U
 
+// Kobuki bumper / cliff bits: right, centre, left.
+#define FSM_SIDE_RIGHT  0x01U
+#define FSM_SIDE_CENTRE 0x02U
+#define FSM_SIDE_LEFT   0x04U
+
 // Search. The Spin Step has no value yet: the number below is a placeholder (TBD).
 #define FSM_SPIN_STEP_DEG     15
 #define FSM_SWEEP_DEG         360
@@ -30,6 +35,15 @@
 #define FSM_ORIENT_A_DEG (-90)
 #define FSM_ORIENT_B_DEG 90
 
+// Pathfind. Tunable on hardware; values match docs/amu_fsm.drawio.
+#define FSM_PATHFIND_DRIVE_SPEED 100
+#define FSM_PATHFIND_WALL_A_DEG  (-10)  // CW off the storage wall
+#define FSM_PATHFIND_WALL_B_DEG  10     // ACW off the storage wall
+#define FSM_PATHFIND_LEDGE_A_DEG 10     // ACW off the ledge
+#define FSM_PATHFIND_LEDGE_B_DEG (-10)  // CW off the ledge
+#define FSM_PATHFIND_CORNER_A_DEG 90    // ACW onto the second corridor
+#define FSM_PATHFIND_CORNER_B_DEG (-90) // CW onto the second corridor
+
 // Kobuki angle: one tick is 0.01 degree and the reading wraps at +/-180 degrees.
 #define FSM_ANGLE_TICKS_PER_DEG   100
 #define FSM_ANGLE_TICKS_HALF_TURN 18000
@@ -47,7 +61,7 @@ typedef struct {
     int16_t swept_deg;      // Angle spun in the current Sweep, + = anticlockwise
     uint8_t sweep_count;    // Sweeps finished without a Detection
     int16_t last_angle;     // kobuki.angle (ticks) at the last Spin exit
-    int16_t heading;        // Corridor heading (kobuki.angle ticks), latched by Orient
+    int16_t heading;        // Corridor heading (kobuki.angle ticks), latched by Orient / Front-cliff turn
     uint8_t corridor;       // 1 = first corridor, 2 = second; set by Orient / Pathfind
 } FSM_Data;
 
@@ -65,7 +79,12 @@ typedef enum {
     FSM_ST_SPIN,
     FSM_ST_ALIGN,
     FSM_ST_ORIENT,
-    FSM_ST_PATHFIND,  // Stub: holds the AMU still. Pathfind not built yet.
+    FSM_ST_PATHFIND_DRIVE,
+    FSM_ST_PATHFIND_WALL_HIT,
+    FSM_ST_PATHFIND_LEDGE_HIT,
+    FSM_ST_PATHFIND_REALIGN,
+    FSM_ST_PATHFIND_FRONT_CLIFF_TURN,
+    FSM_ST_PATHFIND_FRONT_CLIFF_STOP,
     FSM_ST_FAULT,
     FSM_ST_COUNT
 } FSM_State_Id;
@@ -76,7 +95,12 @@ extern const FSM_State state_detect;
 extern const FSM_State state_spin;
 extern const FSM_State state_align;
 extern const FSM_State state_orient;
-extern const FSM_State state_pathfind;
+extern const FSM_State state_pathfind_drive;
+extern const FSM_State state_pathfind_wall_hit;
+extern const FSM_State state_pathfind_ledge_hit;
+extern const FSM_State state_pathfind_realign;
+extern const FSM_State state_pathfind_front_cliff_turn;
+extern const FSM_State state_pathfind_front_cliff_stop;
 extern const FSM_State state_fault;
 
 extern const FSM_State *const fsm_states[FSM_ST_COUNT];
