@@ -120,12 +120,24 @@ The State at the end of the first corridor: the AMU turns 90° onto the second c
 _Avoid_: corner turn, mid-route turn
 
 **Front-cliff stop**:
-The State at the end of the second corridor: the AMU stops and holds, ending Pathfind until Storage is built.
+The State at the end of the second corridor: the AMU stops once, ending Pathfind, then moves straight into Storage Turn.
 _Avoid_: pathfind done, arrival
 
 **Storage** (phase):
-The phase in which the AMU turns to face the entrance and drives into the storage unit.
+The phase in which the AMU faces the entrance, drives into the storage unit, and finishes at the Deposit State. It spans Turn, Drive-in and Deposit.
 _Avoid_: STORAGE when the storage unit itself is meant
+
+**Turn** (Storage):
+The State in which the AMU turns on the spot from the second-corridor heading to face the Entrance.
+_Avoid_: face-entrance, storage rotate, STORAGE_TURN (code id)
+
+**Drive-in**:
+The State in which the AMU drives a fixed distance through the Entrance into the storage unit.
+_Avoid_: enter, DRIVE_IN (code id), Drive (already the Pathfind State)
+
+**Deposit** (State):
+The State after Drive-in in which the AMU stops inside the storage unit. Deposit-location sensing is not part of this State yet.
+_Avoid_: DEPOSIT (code id), drop-off (the place is Deposit location)
 
 ### Running the FSM
 
