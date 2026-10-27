@@ -20,3 +20,6 @@ verify-artifacts/
 .cursor/skills/verify-amu-fault-stop/helpers/tla2tools.jar
 .cursor/skills/verify-amu-fault-stop/formal/states/
 *.toolbox/
+sim/kobuki_sim_mingw.exe
+sim/obj_linux/
+sim/obj_mingw/
