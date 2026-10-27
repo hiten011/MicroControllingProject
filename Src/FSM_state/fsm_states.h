@@ -37,10 +37,6 @@
 
 // Pathfind. Tunable on hardware; values match docs/amu_fsm.drawio.
 #define FSM_PATHFIND_DRIVE_SPEED 100
-#define FSM_PATHFIND_WALL_A_DEG  (-10)  // CW off the storage wall
-#define FSM_PATHFIND_WALL_B_DEG  10     // ACW off the storage wall
-#define FSM_PATHFIND_LEDGE_A_DEG 10     // ACW off the ledge
-#define FSM_PATHFIND_LEDGE_B_DEG (-10)  // CW off the ledge
 #define FSM_PATHFIND_CORNER_A_DEG 90    // ACW onto the second corridor
 #define FSM_PATHFIND_CORNER_B_DEG (-90) // CW onto the second corridor
 #define FSM_PATHFIND_REALIGN_REVERSE_MM 50 // Back-off and matching forward resume
