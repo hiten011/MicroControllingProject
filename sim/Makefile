@@ -1,7 +1,3 @@
-# OS-aware wrappers around build.sh / build.bat.
-# From the repo root: make -C sim A   or   make -C sim B
-# From this folder:   make A          or   make B
-
 SIM_DIR := $(dir $(abspath $(lastword $(MAKEFILE_LIST))))
 ROOT := $(abspath $(SIM_DIR)/..)
 

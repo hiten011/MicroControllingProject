@@ -1,11 +1,4 @@
 #!/usr/bin/env python3
-"""Fail if Pathfind does not reverse after a storage-wall bumper hit.
-
-Layout A with Orient -90 puts the storage wall on the robot's left while it
-drives the bottom corridor. A left bumper during Drive must be followed by a
-negative wheel command (Reverse) within a short window. Layout B mirrors this
-on the right bumper once Pathfind is under way.
-"""
 
 from __future__ import annotations
 
@@ -40,7 +33,6 @@ def run(layout: str, heading: int, seed: int = 1) -> Path:
     subprocess.run(cmd, cwd=ROOT, check=False, capture_output=True, text=True)
     html = OUT / f"run_{tag}.html"
     if not html.is_file():
-        # deposit default differs by layout; find the only html
         htmls = sorted(OUT.glob(f"run_{layout}*.html"))
         if not htmls:
             raise SystemExit(f"no replay written for layout {layout}")
@@ -92,8 +84,6 @@ def check_layout(layout: str, heading: int) -> None:
     events, frames = load_frames(html)
     t_bump = first_storage_bump(events, layout)
     if t_bump is None:
-        # Layout B may hit the ledge first; accept a ledge cliff then a later wall bump,
-        # but still require some reverse after the first relevant wall bump if present.
         if layout == "B":
             cliffs = [e[0] for e in events if e[2] == "cliff" and "left" in e[3]]
             if cliffs and any(q[12] < 0 for q in frames if cliffs[0] <= q[0] <= cliffs[0] + 400):
