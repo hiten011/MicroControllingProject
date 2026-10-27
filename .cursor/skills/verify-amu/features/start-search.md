@@ -24,5 +24,5 @@ Preconditions:
 
 ## Gotchas
 
-- Without B0 the firmware stays in Idle (`state_idle.c`); the sim always injects B0 for scored trials — proving Idle-without-B0 needs a different harness and is not mapped yet.
+- Without B0 the firmware stays in Idle (`ST_IDLE` in `main.c`); the sim always injects B0 for scored trials — proving Idle-without-B0 needs a different harness and is not mapped yet.
 - A FAIL on deposit checks does not fail this feature; only a missing B0 start event does.
