@@ -16,5 +16,8 @@ const FSM_State *const fsm_states[FSM_ST_COUNT] = {
     [FSM_ST_PATHFIND_REALIGN] = &state_pathfind_realign,
     [FSM_ST_PATHFIND_FRONT_CLIFF_TURN] = &state_pathfind_front_cliff_turn,
     [FSM_ST_PATHFIND_FRONT_CLIFF_STOP] = &state_pathfind_front_cliff_stop,
+    [FSM_ST_STORAGE_TURN] = &state_storage_turn,
+    [FSM_ST_STORAGE_DRIVE_IN] = &state_storage_drive_in,
+    [FSM_ST_STORAGE_DEPOSIT] = &state_storage_deposit,
     [FSM_ST_FAULT] = &state_fault,
 };

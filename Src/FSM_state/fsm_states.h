@@ -29,7 +29,7 @@
 #define FSM_LAYOUT_A_MAX_MM 650U
 
 // Align: anticlockwise from first-detection heading to centre heading. 0 until measured.
-#define FSM_ALIGNMENT_OFFSET_DEG 0
+#define FSM_ALIGNMENT_OFFSET_DEG 10
 
 // Orient: Layout A turns CW to the bottom corridor; Layout B turns ACW to the left corridor.
 #define FSM_ORIENT_A_DEG (-90)
@@ -43,6 +43,11 @@
 #define FSM_PATHFIND_LEDGE_B_DEG (-10)  // CW off the ledge
 #define FSM_PATHFIND_CORNER_A_DEG 90    // ACW onto the second corridor
 #define FSM_PATHFIND_CORNER_B_DEG (-90) // CW onto the second corridor
+
+// Storage. Tunable on hardware; values match docs/amu_fsm.drawio.
+#define FSM_STORAGE_TURN_A_DEG 135   // ACW to face the Entrance
+#define FSM_STORAGE_TURN_B_DEG (-135) // CW to face the Entrance
+#define FSM_STORAGE_DRIVE_IN_MM 740  // Through the Entrance into the storage unit
 
 // Kobuki angle: one tick is 0.01 degree and the reading wraps at +/-180 degrees.
 #define FSM_ANGLE_TICKS_PER_DEG   100
@@ -85,6 +90,9 @@ typedef enum {
     FSM_ST_PATHFIND_REALIGN,
     FSM_ST_PATHFIND_FRONT_CLIFF_TURN,
     FSM_ST_PATHFIND_FRONT_CLIFF_STOP,
+    FSM_ST_STORAGE_TURN,
+    FSM_ST_STORAGE_DRIVE_IN,
+    FSM_ST_STORAGE_DEPOSIT,
     FSM_ST_FAULT,
     FSM_ST_COUNT
 } FSM_State_Id;
@@ -101,6 +109,9 @@ extern const FSM_State state_pathfind_ledge_hit;
 extern const FSM_State state_pathfind_realign;
 extern const FSM_State state_pathfind_front_cliff_turn;
 extern const FSM_State state_pathfind_front_cliff_stop;
+extern const FSM_State state_storage_turn;
+extern const FSM_State state_storage_drive_in;
+extern const FSM_State state_storage_deposit;
 extern const FSM_State state_fault;
 
 extern const FSM_State *const fsm_states[FSM_ST_COUNT];
