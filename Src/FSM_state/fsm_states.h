@@ -32,8 +32,8 @@
 #define FSM_ALIGNMENT_OFFSET_DEG 13
 
 // Orient: Layout A turns CW to the bottom corridor; Layout B turns ACW to the left corridor.
-#define FSM_ORIENT_A_DEG 90
-#define FSM_ORIENT_B_DEG (-90)
+#define FSM_ORIENT_A_DEG (-90)
+#define FSM_ORIENT_B_DEG 90
 
 // Pathfind. Tunable on hardware; values match docs/amu_fsm.drawio.
 #define FSM_PATHFIND_DRIVE_SPEED 100
