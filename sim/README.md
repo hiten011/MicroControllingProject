@@ -20,6 +20,8 @@ make -C sim B        # Layout B, heading 0, seed 1, verbose
 make -C sim check    # pathfind Reverse recovery check
 ```
 
+Scoring FAILs still print. `make A` and `make B` still exit 0.
+
 On Linux and macOS, with `gcc` on `PATH`, you can still call the script directly:
 
 ```

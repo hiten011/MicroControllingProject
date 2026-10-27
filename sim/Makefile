@@ -18,17 +18,18 @@ all: build
 build:
 	cd "$(SIM_DIR)" && $(BUILD)
 
+# Exit 1 is a Table 1 FAIL after the replay is written. Exit 2 and signals still fail.
 A: build
-	cd "$(ROOT)" && "$(RUN)" --layout A --heading 90 --seed 1 -v
+	cd "$(ROOT)" || exit $$?; "$(RUN)" --layout A --heading 90 --seed 1 -v || { rc=$$?; [ $$rc -eq 1 ] || exit $$rc; }
 
 B: build
-	cd "$(ROOT)" && "$(RUN)" --layout B --heading 0 --seed 1 -v
+	cd "$(ROOT)" || exit $$?; "$(RUN)" --layout B --heading 0 --seed 1 -v || { rc=$$?; [ $$rc -eq 1 ] || exit $$rc; }
 
 check: build
 	cd "$(ROOT)" && python3 sim/check_pathfind_recover.py
 
 help:
 	@echo "make / make build  build the simulator for this OS"
-	@echo "make A             build, then run Layout A (heading 90, seed 1, verbose)"
-	@echo "make B             build, then run Layout B (heading 0, seed 1, verbose)"
+	@echo "make A             build, run Layout A (heading 90, seed 1, verbose), and write the replay"
+	@echo "make B             build, run Layout B (heading 0, seed 1, verbose), and write the replay"
 	@echo "make check         build, then run pathfind Reverse recovery check"
