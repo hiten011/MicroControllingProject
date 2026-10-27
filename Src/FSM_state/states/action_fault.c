@@ -1,6 +1,4 @@
 #include "action_fault.h"
-#include "fsm_config.h"
-#include "fsm_data.h"
 #include "fsm_states.h"
 
 static bool stop_button_or_wheeldrop(void)

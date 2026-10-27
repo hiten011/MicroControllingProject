@@ -1,5 +1,4 @@
 #include "action_fault.h"
-#include "fsm_data.h"
 #include "fsm_states.h"
 
 // Stub. ALIGN is not built yet: the AMU holds still until B1, a wheeldrop or a bumper sends it to FAULT.

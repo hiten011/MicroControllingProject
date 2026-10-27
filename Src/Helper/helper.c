@@ -1,7 +1,6 @@
-#include "fsm_helpers.h"
-#include "fsm_config.h"
+#include "helper.h"
 
-FSM_Layout FSM_Layout_From_Range(uint16_t range_mm)
+FSM_Layout Layout_From_Range(uint16_t range_mm)
 {
     if (range_mm > FSM_LAYOUT_SPLIT_MM && range_mm <= FSM_LAYOUT_A_MAX_MM) {
         return FSM_LAYOUT_A;
@@ -14,7 +13,7 @@ FSM_Layout FSM_Layout_From_Range(uint16_t range_mm)
     return FSM_LAYOUT_NONE;
 }
 
-int16_t FSM_Angle_Delta_Deg(int16_t from_angle_tick, int16_t to_angle_tick)
+int16_t Angle_Delta_Deg(int16_t from_angle_tick, int16_t to_angle_tick)
 {
     int32_t delta = (int32_t)to_angle_tick - (int32_t)from_angle_tick;
 

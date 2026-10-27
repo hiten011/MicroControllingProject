@@ -31,7 +31,7 @@ typedef struct {
 } FSM_State;
 
 // Make start_state the current State and run its init(). The table is indexed by state id.
-// Returns false, and enters no State, if the table has no State at start_state.
+// start_state and every Action next_state must be valid indexes in the table.
 bool FSM_Init(const FSM_State *const *states, size_t state_count, int start_state);
 
 // Check the Actions of the current State in order. The first Action with a true condition runs
@@ -42,7 +42,6 @@ bool FSM_Init(const FSM_State *const *states, size_t state_count, int start_stat
 void FSM_Tick(void);
 
 // Leave the current State (exit()) and enter next_state (init()).
-// Returns false, and changes nothing, if the table has no State at next_state.
 bool FSM_Change_State(int next_state);
 
 // The id of the current State, or FSM_NO_STATE before FSM_Init() succeeds.

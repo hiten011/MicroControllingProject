@@ -45,16 +45,15 @@ target_sources(${PROJECT_NAME} PRIVATE
   "Src/Ultrasonic/ultrasonic.c"
   "Src/stm_helper/my_stm_helper.c"
   "Src/FSM/fsm.c"
-  "Src/FSM/fsm_data.c"
-  "Src/FSM/fsm_helpers.c"
-  "Src/FSM/fsm_states.c"
-  "Src/FSM/states/action_fault.c"
-  "Src/FSM/states/state_idle.c"
-  "Src/FSM/states/state_search.c"
-  "Src/FSM/states/state_detect.c"
-  "Src/FSM/states/state_spin.c"
-  "Src/FSM/states/state_align.c"
-  "Src/FSM/states/state_fault.c"
+  "Src/FSM_state/fsm_states.c"
+  "Src/FSM_state/states/action_fault.c"
+  "Src/FSM_state/states/state_idle.c"
+  "Src/FSM_state/states/state_search.c"
+  "Src/FSM_state/states/state_detect.c"
+  "Src/FSM_state/states/state_spin.c"
+  "Src/FSM_state/states/state_align.c"
+  "Src/FSM_state/states/state_fault.c"
+  "Src/Helper/helper.c"
 )
 
 # Add include directories
@@ -70,7 +69,9 @@ target_include_directories(${PROJECT_NAME} PRIVATE
   Src/Ultrasonic
   Src/stm_helper
   Src/FSM
-  Src/FSM/states
+  Src/FSM_state
+  Src/FSM_state/states
+  Src/Helper
 )
 
 # Compiler options

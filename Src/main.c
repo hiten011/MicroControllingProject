@@ -9,7 +9,6 @@
 #include "ultrasonic.h"
 #include "kobuki.h"
 #include "fsm.h"
-#include "fsm_data.h"
 #include "fsm_states.h"
 
 int main(void)

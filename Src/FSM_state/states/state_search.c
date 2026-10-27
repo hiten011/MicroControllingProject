@@ -1,15 +1,13 @@
 #include "action_fault.h"
-#include "fsm_config.h"
-#include "fsm_data.h"
-#include "fsm_helpers.h"
 #include "fsm_states.h"
+#include "helper.h"
 
 // Read the last Detect reading. This is in init() and not in a do / Action, because the Actions below
 // are checked before any do / Action and they need the Layout. It is overwritten at every Detection.
 static void search_init(void)
 {
     if (fsm_data.object.detected) {
-        fsm_data.layout = FSM_Layout_From_Range(fsm_data.object.range_mm);
+        fsm_data.layout = Layout_From_Range(fsm_data.object.range_mm);
     }
 }
 
