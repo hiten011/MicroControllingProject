@@ -150,6 +150,8 @@ static SearchDecision Search_Decide(const US_Typedef *object)
         case LAYOUT_NONE:
             return SEARCH_FAULT_LAYOUT;
     }
+    // Layout's three cases all return. This keeps cppcheck's missingReturn quiet.
+    return SEARCH_FAULT_LAYOUT;
 }
 
 int main(void)
