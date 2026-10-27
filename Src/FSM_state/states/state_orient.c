@@ -27,7 +27,7 @@ static void orient_rotate(void)
 static const FSM_Action orient_to_pathfind = {
     .condition = rotation_complete,
     .effect = latch_corridor_heading,
-    .next_state = FSM_ST_PATHFIND,
+    .next_state = FSM_ST_PATHFIND_DRIVE,
 };
 
 // No condition: the do / of the State, runs when no Action above it ran.
