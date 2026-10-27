@@ -1,12 +1,9 @@
 /*
  * sim_shim.c - debugger-friendly replacement for uart.c and adc.c.
  *
- * Built only by "build.bat shim". The register-level build traps every
- * USART3/ADC1 access with access-violation + single-step exceptions,
- * which confuses gdb. This build swaps the two lowest drivers for direct
- * calls into the simulator so breakpoints in the FSM work normally.
- * Everything above them (kobuki.c, Ultrasonic.c, Navigation/, main.c)
- * is still the student's code, unchanged.
+ * The Windows register-trap build faults every USART3 and ADC1 access,
+ * which confuses gdb. Unix builds, and "build.bat shim", link this file
+ * instead of those two drivers. Code above them is still the firmware.
  */
 #include <stdint.h>
 #include "sim.h"
