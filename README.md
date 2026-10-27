@@ -8,7 +8,7 @@ Firmware for the Autonomous Mobile Unit (AMU): a Kobuki base driven by a NUCLEO-
 
 ## How it runs
 
-One Tick of the FSM per received Kobuki packet (`Kobuki_Read()`, then `FSM_Tick()`; see `Src/main.c`). The AMU walks this path:
+One control step per received Kobuki packet (`Kobuki_Read()`, then a `switch` on the current state in `Src/main.c`). The AMU walks this path:
 
 ```
 IDLE ──B0──▶ SEARCH ⇄ DETECT / SPIN ──▶ ALIGN ──▶ ORIENT ──▶ PATHFIND ──▶ STORAGE ──▶ IDLE
@@ -36,10 +36,8 @@ Pathfind recovery is **Drive → Reverse (−50 mm) → Rotate (A +10° / B −1
 
 | Path | What is in it |
 | --- | --- |
-| `Src/main.c` | Init, then the Read + Tick loop |
-| `Src/FSM/` | The FSM engine: States, Actions, `FSM_Tick()` |
-| `Src/FSM_state/` | State ids, shared data and constants (`fsm_states.h`), one file per State in `states/`, and the shared fault Actions (`action_fault.c`) |
-| `Src/Helper/` | `Layout_From_Range()` and `Angle_Delta_Deg()` |
+| `Src/main.c` | Init, the Read loop, and the state `switch` |
+| `Src/Helper/` | Shared `robot` data, tunables, `Layout_From_Range()` |
 | `Src/Kobuki_Drivers/` | Kobuki packet read / write, distance and angle setpoints |
 | `Src/Ultrasonic/`, `Src/ADC/`, `Src/G474RE_Drivers/` | Ultrasonic reading, ADC and UART drivers |
 
