@@ -8,6 +8,8 @@ static void idle_exit(void)
     fsm_data.swept_deg = 0;
     fsm_data.sweep_count = 0;
     fsm_data.last_angle = fsm_data.kobuki.angle;
+    fsm_data.heading = 0;
+    fsm_data.corridor = 0;
 }
 
 static bool start_button_pressed(void)
