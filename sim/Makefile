@@ -18,7 +18,6 @@ all: build
 build:
 	cd "$(SIM_DIR)" && $(BUILD)
 
-# Exit 1 is a Table 1 FAIL after the replay is written. Exit 2 and signals still fail.
 A: build
 	cd "$(ROOT)" || exit $$?; "$(RUN)" --layout A --heading 90 --seed 1 -v || { rc=$$?; [ $$rc -eq 1 ] || exit $$rc; }
 
