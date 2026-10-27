@@ -29,7 +29,7 @@
 #define FSM_LAYOUT_A_MAX_MM 650U
 
 // Align: anticlockwise from first-detection heading to centre heading. 0 until measured.
-#define FSM_ALIGNMENT_OFFSET_DEG 20
+#define FSM_ALIGNMENT_OFFSET_DEG 13
 
 // Orient: Layout A turns CW to the bottom corridor; Layout B turns ACW to the left corridor.
 #define FSM_ORIENT_A_DEG 90
@@ -37,6 +37,7 @@
 
 // Pathfind. Tunable on hardware; values match docs/amu_fsm.drawio.
 #define FSM_PATHFIND_DRIVE_SPEED 100
+#define FSM_PATHFIND_CORRIDOR_MM 1200 // Net forward travel that ends each corridor
 #define FSM_PATHFIND_CORNER_A_DEG 90    // ACW onto the second corridor
 #define FSM_PATHFIND_CORNER_B_DEG (-90) // CW onto the second corridor
 #define FSM_PATHFIND_REVERSE_MM 50 // Fixed reverse distance after storage-wall bumper or ledge cliff
@@ -63,8 +64,9 @@ typedef struct {
     int16_t swept_deg;      // Angle spun in the current Sweep, + = anticlockwise
     uint8_t sweep_count;    // Sweeps finished without a Detection
     int16_t last_angle;     // kobuki.angle (ticks) at the last Spin exit
-    int16_t heading;        // Corridor heading (kobuki.angle ticks), latched by Orient / Front-cliff turn
+    int16_t heading;        // Corridor heading (kobuki.angle ticks), latched by Orient / Corridor turn
     uint8_t corridor;       // 1 = first corridor, 2 = second; set by Orient / Pathfind
+    uint16_t corridor_start_distance; // kobuki.distance at corridor start (Orient / Corridor turn)
 } FSM_Data;
 
 extern FSM_Data fsm_data;
@@ -84,8 +86,8 @@ typedef enum {
     FSM_ST_PATHFIND_DRIVE,
     FSM_ST_PATHFIND_REVERSE,
     FSM_ST_PATHFIND_ROTATE,
-    FSM_ST_PATHFIND_FRONT_CLIFF_TURN,
-    FSM_ST_PATHFIND_FRONT_CLIFF_STOP,
+    FSM_ST_PATHFIND_CORRIDOR_TURN,
+    FSM_ST_PATHFIND_CORRIDOR_STOP,
     FSM_ST_STORAGE_TURN,
     FSM_ST_STORAGE_DRIVE_IN,
     FSM_ST_STORAGE_DEPOSIT,
@@ -102,8 +104,8 @@ extern const FSM_State state_orient;
 extern const FSM_State state_pathfind_drive;
 extern const FSM_State state_pathfind_reverse;
 extern const FSM_State state_pathfind_rotate;
-extern const FSM_State state_pathfind_front_cliff_turn;
-extern const FSM_State state_pathfind_front_cliff_stop;
+extern const FSM_State state_pathfind_corridor_turn;
+extern const FSM_State state_pathfind_corridor_stop;
 extern const FSM_State state_storage_turn;
 extern const FSM_State state_storage_drive_in;
 extern const FSM_State state_storage_deposit;
