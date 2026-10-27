@@ -1,0 +1,414 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Kobuki Sim Replay</title>
+<style>
+:root {
+  color-scheme: light dark;
+  --bg: #f6f6f3; --panel: #ffffff; --fg: #1c1c1a; --mut: #6d6d67; --line: #e2e2dc;
+  --plat: #ecebe4; --ledge: #8a877c; --wall: #3b3a36; --sect: #b9b6aa;
+  --bollard: #f08a1c; --marker: #1f7ae0; --ghost: #c9c6ba;
+  --robot: #2b2b28; --robot-fill: rgba(43,43,40,.10); --trail: #7a5cd6;
+  --beam: rgba(31,122,224,.16); --beam-hit: rgba(31,160,90,.28); --beam-edge: #1fa05a;
+  --ok: #1a7f37; --bad: #c62828; --warn: #a15c00; --accent: #7a5cd6;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #141413; --panel: #1d1d1b; --fg: #e9e8e3; --mut: #9b9a93; --line: #31302c;
+    --plat: #26251f; --ledge: #6d6a5f; --wall: #d8d6cc; --sect: #4a4840;
+    --bollard: #ff9a33; --marker: #4c9bff; --ghost: #45443d;
+    --robot: #ecebe4; --robot-fill: rgba(236,235,228,.10); --trail: #a48bff;
+    --beam: rgba(76,155,255,.16); --beam-hit: rgba(70,200,120,.26); --beam-edge: #4cc26b;
+    --ok: #4cc26b; --bad: #ff6b6b; --warn: #f0a640; --accent: #a48bff;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #141413; --panel: #1d1d1b; --fg: #e9e8e3; --mut: #9b9a93; --line: #31302c;
+  --plat: #26251f; --ledge: #6d6a5f; --wall: #d8d6cc; --sect: #4a4840;
+  --bollard: #ff9a33; --marker: #4c9bff; --ghost: #45443d;
+  --robot: #ecebe4; --robot-fill: rgba(236,235,228,.10); --trail: #a48bff;
+  --beam: rgba(76,155,255,.16); --beam-hit: rgba(70,200,120,.26); --beam-edge: #4cc26b;
+  --ok: #4cc26b; --bad: #ff6b6b; --warn: #f0a640; --accent: #a48bff;
+}
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--bg); color: var(--fg); font: 14px/1.45 system-ui, -apple-system, "Segoe UI", sans-serif; }
+header { padding: 16px 16px 8px; max-width: 1400px; margin: auto; display: flex; flex-wrap: wrap; gap: 8px 16px; align-items: baseline; }
+h1 { font-size: 18px; margin: 0; }
+.meta { color: var(--mut); font-size: 13px; }
+.score { margin-left: auto; font-weight: 600; font-variant-numeric: tabular-nums; }
+main { max-width: 1400px; margin: auto; padding: 0 16px 24px; display: grid; grid-template-columns: minmax(0, 1fr) 380px; gap: 16px; }
+@media (max-width: 960px) { main { grid-template-columns: minmax(0, 1fr); } }
+.card { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; }
+#stage { position: relative; aspect-ratio: 1 / 1; max-height: 78vh; width: 100%; }
+#arena { width: 100%; height: 100%; display: block; }
+.controls { display: flex; align-items: center; gap: 10px; padding: 10px 12px; border-top: 1px solid var(--line); flex-wrap: wrap; }
+button, select { font: inherit; color: var(--fg); background: var(--bg); border: 1px solid var(--line); border-radius: 6px; padding: 4px 10px; cursor: pointer; }
+button:hover { border-color: var(--mut); }
+#scrub { flex: 1; min-width: 160px; accent-color: var(--accent); }
+#clock { font-variant-numeric: tabular-nums; min-width: 128px; text-align: right; color: var(--mut); }
+.side { display: flex; flex-direction: column; gap: 16px; min-width: 0; }
+.sec { padding: 12px 14px; }
+.sec h2 { font-size: 12px; text-transform: uppercase; letter-spacing: .04em; color: var(--mut); margin: 0 0 8px; font-weight: 600; }
+.grid { display: grid; grid-template-columns: auto 1fr; gap: 3px 12px; font-variant-numeric: tabular-nums; }
+.grid .k { color: var(--mut); }
+.chips { display: flex; gap: 4px; flex-wrap: wrap; }
+.chip { font-size: 11px; padding: 1px 6px; border-radius: 999px; border: 1px solid var(--line); color: var(--mut); }
+.chip.on { background: var(--bad); border-color: var(--bad); color: #fff; }
+.led { display: inline-block; width: 11px; height: 11px; border-radius: 50%; border: 1px solid var(--line); vertical-align: -1px; margin-right: 4px; }
+.checks { list-style: none; margin: 0; padding: 0; }
+.checks li { display: grid; grid-template-columns: 44px 1fr; gap: 2px 8px; padding: 4px 0; border-bottom: 1px solid var(--line); }
+.checks li:last-child { border-bottom: 0; }
+.checks .v { grid-column: 2; color: var(--mut); font-size: 12px; }
+.pass { color: var(--ok); font-weight: 600; } .fail { color: var(--bad); font-weight: 600; }
+.trialtabs { display: flex; gap: 6px; margin-bottom: 8px; flex-wrap: wrap; }
+.trialtabs button.sel { border-color: var(--accent); color: var(--accent); }
+#events { max-height: 260px; overflow-y: auto; font-size: 12px; font-variant-numeric: tabular-nums; }
+#events div { padding: 2px 4px; border-radius: 4px; cursor: pointer; display: grid; grid-template-columns: 58px 58px 1fr; gap: 6px; }
+#events div:hover { background: var(--bg); }
+#events div.past { color: var(--mut); }
+#events .kd { font-weight: 600; }
+.kHIT, .kFELL, .kSPEED, .kERROR, .kSAFETY { color: var(--bad); }
+.warn { color: var(--warn); font-size: 12px; margin: 4px 0 0; }
+canvas.chart { width: 100%; height: 110px; display: block; cursor: pointer; }
+.chartlab { font-size: 12px; color: var(--mut); margin: 6px 0 2px; display: flex; justify-content: space-between; }
+.full { grid-column: 1 / -1; }
+.empty { padding: 40px; text-align: center; color: var(--mut); }
+</style>
+</head>
+<body>
+<header>
+  <h1>Kobuki Sim Replay</h1>
+  <span class="meta" id="meta"></span>
+  <span class="score" id="score"></span>
+</header>
+<main id="app">
+  <div class="card">
+    <div id="stage"><canvas id="arena" aria-label="Top-down view of the arena and robot"></canvas></div>
+    <div class="controls">
+      <button id="play" title="Space">Play</button>
+      <select id="speed" title="Playback speed">
+        <option value="0.25">0.25x</option><option value="0.5">0.5x</option><option value="1" selected>1x</option>
+        <option value="2">2x</option><option value="4">4x</option><option value="8">8x</option><option value="16">16x</option>
+      </select>
+      <input id="scrub" type="range" min="0" value="0" step="1" aria-label="Timeline">
+      <span id="clock"></span>
+    </div>
+    <div class="sec">
+      <div class="chartlab"><span>Ultrasonic range (mm)</span><span id="rangeNow"></span></div>
+      <canvas class="chart" id="chRange"></canvas>
+      <div class="chartlab"><span>Wheel speed command (mm/s) &mdash; left / right</span><span id="speedNow"></span></div>
+      <canvas class="chart" id="chSpeed"></canvas>
+    </div>
+  </div>
+  <div class="side">
+    <div class="card sec">
+      <h2>Robot</h2>
+      <div class="grid" id="telem"></div>
+    </div>
+    <div class="card sec">
+      <h2>Checks (Table 1)</h2>
+      <div class="trialtabs" id="tabs"></div>
+      <ul class="checks" id="checks"></ul>
+      <div id="outcome" class="meta" style="margin-top:6px"></div>
+    </div>
+    <div class="card sec">
+      <h2>Events</h2>
+      <div id="events"></div>
+      <div id="warnings"></div>
+    </div>
+  </div>
+</main>
+<script>
+const SIM = /*__SIM_DATA__*/null;
+(function () {
+  if (!SIM || !SIM.frames || !SIM.frames.length) {
+    document.getElementById('app').innerHTML = '<div class="card empty full">No simulation data in this file.</div>';
+    return;
+  }
+  const F = SIM.frames, N = F.length, A = SIM.arena, TR = SIM.trials;
+  // frame fields
+  const T=0, TI=1, X=2, Y=3, TH=4, RNG=5, ADC=6, GPO=7, BUMP=8, CLIFF=9, DROP=10, BTN=11, CV=12, CR=13, VL=14, VR=15, GY=16, ENC=17, LIFT=18;
+  const $ = id => document.getElementById(id);
+  const css = n => getComputedStyle(document.documentElement).getPropertyValue(n).trim();
+  const LEDC = ['transparent', '#e53935', '#43a047', '#fbc02d'];
+  const LEDN = ['off', 'red', 'green', 'yellow'];
+
+  // ---- header ----
+  const nP = TR.reduce((s, t) => s + t.n_pass, 0), nC = TR.reduce((s, t) => s + t.n_checks, 0);
+  $('meta').textContent = TR.map(t => `Layout ${t.layout} / D${t.deposit}, start ${Math.round(t.heading)}°`).join('  →  ')
+    + `  ·  seed ${SIM.seed}  ·  sensor ${A.sensor_offset} mm ahead, ±${A.beam}° beam`;
+  $('score').innerHTML = `<span class="${nP === nC ? 'pass' : 'fail'}">${nP} / ${nC} checks pass</span>`;
+
+  // ---- per-trial helpers ----
+  const trialStart = [], trialEnd = [];
+  for (let i = 0; i < N; i++) { const k = F[i][TI]; if (trialStart[k] === undefined) trialStart[k] = i; trialEnd[k] = i; }
+  const b0 = k => TR[k] ? TR[k].t_b0 * 1000 : F[0][T];
+
+  // ---- state ----
+  let idx = 0, playing = false, speed = 1, simT = F[0][T], lastTs = null, selTrial = 0;
+  const scrub = $('scrub'); scrub.max = N - 1;
+
+  function idxAt(t) { let lo = 0, hi = N - 1; while (lo < hi) { const m = (lo + hi + 1) >> 1; if (F[m][T] <= t) lo = m; else hi = m - 1; } return lo; }
+  function seek(i) { idx = Math.max(0, Math.min(N - 1, i)); simT = F[idx][T]; render(); }
+
+  // ---- arena canvas ----
+  const cv = $('arena'), ctx = cv.getContext('2d');
+  const VB = { x0: -520, x1: 2120, y0: -330, y1: 2340 };
+  let S = 1, OX = 0, OY = 0;
+  function resize() {
+    const r = cv.getBoundingClientRect(), d = window.devicePixelRatio || 1;
+    cv.width = Math.round(r.width * d); cv.height = Math.round(r.height * d);
+    S = Math.min(cv.width / (VB.x1 - VB.x0), cv.height / (VB.y1 - VB.y0));
+    OX = (cv.width - (VB.x1 - VB.x0) * S) / 2; OY = (cv.height - (VB.y1 - VB.y0) * S) / 2;
+    drawCharts(); render();
+  }
+  const px = x => OX + (x - VB.x0) * S, py = y => OY + (VB.y1 - y) * S;
+  function circle(x, y, r, fill, stroke, dash) {
+    ctx.beginPath(); ctx.arc(px(x), py(y), r * S, 0, 2 * Math.PI);
+    if (fill) { ctx.fillStyle = fill; ctx.fill(); }
+    if (stroke) { ctx.setLineDash(dash || []); ctx.strokeStyle = stroke; ctx.stroke(); ctx.setLineDash([]); }
+  }
+  function label(t, x, y, col, size) {
+    ctx.fillStyle = col; ctx.font = `${Math.max(10, (size || 40) * S)}px system-ui, sans-serif`;
+    ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText(t, px(x), py(y));
+  }
+
+  function drawArena(k) {
+    const d = window.devicePixelRatio || 1;
+    ctx.fillStyle = css('--bg'); ctx.fillRect(0, 0, cv.width, cv.height);
+    // room walls (index 4,5) hatched
+    A.walls.forEach((w, i) => {
+      const x = px(w[0]), y = py(w[3]), ww = (w[2] - w[0]) * S, hh = (w[3] - w[1]) * S;
+      if (i >= 4) {
+        ctx.save(); ctx.beginPath(); ctx.rect(x, y, ww, hh); ctx.clip();
+        ctx.strokeStyle = css('--ledge'); ctx.lineWidth = 1 * d;
+        for (let t = -hh; t < ww + hh; t += 10 * d) { ctx.beginPath(); ctx.moveTo(x + t, y + hh); ctx.lineTo(x + t + hh, y); ctx.stroke(); }
+        ctx.restore(); ctx.strokeStyle = css('--ledge'); ctx.strokeRect(x, y, ww, hh);
+      }
+    });
+    // platform + ledge
+    ctx.fillStyle = css('--plat'); ctx.fillRect(px(0), py(A.h), A.w * S, A.h * S);
+    ctx.lineWidth = 3 * d; ctx.strokeStyle = css('--ledge'); ctx.strokeRect(px(0), py(A.h), A.w * S, A.h * S);
+    // sections
+    ctx.lineWidth = 1 * d; ctx.setLineDash([6 * d, 6 * d]); ctx.strokeStyle = css('--sect');
+    ctx.beginPath(); ctx.moveTo(px(A.w / 2), py(0)); ctx.lineTo(px(A.w / 2), py(A.h));
+    ctx.moveTo(px(0), py(A.h / 2)); ctx.lineTo(px(A.w), py(A.h / 2)); ctx.stroke(); ctx.setLineDash([]);
+    [[1, 90, 90], [2, 90, 1710], [3, 1510, 1710], [4, 1510, 90]].forEach(s => label(String(s[0]), s[1], s[2], css('--mut'), 70));
+    // storage walls
+    ctx.fillStyle = css('--wall');
+    A.walls.slice(0, 4).forEach(w => ctx.fillRect(px(w[0]), py(w[3]), Math.max(1, (w[2] - w[0]) * S), Math.max(1, (w[3] - w[1]) * S)));
+    ctx.setLineDash([3 * d, 5 * d]); ctx.strokeStyle = css('--mut'); ctx.lineWidth = 1 * d;
+    ctx.beginPath(); ctx.moveTo(px(850), py(1400)); ctx.lineTo(px(1200), py(1050)); ctx.stroke(); ctx.setLineDash([]);
+    label('storage', 800, 900, css('--mut'), 42);
+    // start
+    ctx.lineWidth = 1 * d; circle(200, 200, A.robot_r, null, css('--sect'), [4 * d, 4 * d]);
+    // objects
+    const t = TR[k] || TR[0];
+    const present = new Set(t.layout === 'A' ? ['A1', 'A2'] : ['B1', 'B2']); present.add('D' + t.deposit);
+    A.all.forEach(o => {
+      const on = present.has(o[0]), mk = o[0][0] === 'D';
+      ctx.lineWidth = 1.5 * d;
+      if (on) circle(o[1], o[2], 45, css(mk ? '--marker' : '--bollard'));
+      else circle(o[1], o[2], 45, null, css('--ghost'), [3 * d, 3 * d]);
+      label(o[0], o[1] + 95, o[2], on ? css('--fg') : css('--ghost'), 38);
+    });
+  }
+
+  function drawRobot(f) {
+    const d = window.devicePixelRatio || 1, R = A.robot_r, th = f[TH] * Math.PI / 180;
+    const x = f[X], y = f[Y], lifted = f[LIFT];
+    // ultrasonic beam
+    const so = A.sensor_offset, sx = x + so * Math.cos(th), sy = y + so * Math.sin(th);
+    const half = A.beam * Math.PI / 180, r = f[RNG], hit = r < 5000;
+    const L = hit ? r : 2600;
+    ctx.beginPath(); ctx.moveTo(px(sx), py(sy));
+    ctx.arc(px(sx), py(sy), L * S, -(th + half), -(th - half));
+    ctx.closePath(); ctx.fillStyle = css(hit ? '--beam-hit' : '--beam'); ctx.fill();
+    if (hit) { ctx.beginPath(); ctx.arc(px(sx), py(sy), L * S, -(th + half), -(th - half)); ctx.strokeStyle = css('--beam-edge'); ctx.lineWidth = 2 * d; ctx.stroke(); }
+    // body
+    ctx.lineWidth = 2 * d;
+    circle(x, y, R, css('--robot-fill'), css('--robot'), lifted ? [6 * d, 4 * d] : null);
+    // bumper arcs: right -90..-30, centre -30..30, left 30..90
+    const segs = [[1, -90, -30], [2, -30, 30], [4, 30, 90]];
+    segs.forEach(s => {
+      const on = f[BUMP] & s[0];
+      ctx.beginPath(); ctx.arc(px(x), py(y), (R + 6) * S, -(th + s[2] * Math.PI / 180) + 0.04, -(th + s[1] * Math.PI / 180) - 0.04);
+      ctx.strokeStyle = on ? css('--bad') : css('--sect'); ctx.lineWidth = (on ? 5 : 2) * d; ctx.stroke();
+    });
+    // cliff sensors
+    [[1, -50], [2, 0], [4, 50]].forEach(c => {
+      const a = th + c[1] * Math.PI / 180, cx = x + 165 * Math.cos(a), cy = y + 165 * Math.sin(a);
+      ctx.beginPath(); ctx.arc(px(cx), py(cy), Math.max(2.5 * d, 16 * S), 0, 2 * Math.PI);
+      ctx.fillStyle = (f[CLIFF] & c[0]) ? css('--bad') : css('--mut'); ctx.fill();
+    });
+    // heading
+    ctx.beginPath(); ctx.moveTo(px(x), py(y)); ctx.lineTo(px(x + (R - 25) * Math.cos(th)), py(y + (R - 25) * Math.sin(th)));
+    ctx.strokeStyle = css('--robot'); ctx.lineWidth = 2.5 * d; ctx.stroke();
+    // LEDs
+    const l1 = (f[GPO] >> 8) & 3, l2 = (f[GPO] >> 10) & 3;
+    [[l1, 50], [l2, -50]].forEach(l => {
+      const a = th + Math.PI + l[1] * Math.PI / 180 * 0.6, lx = x + 80 * Math.cos(a), ly = y + 80 * Math.sin(a);
+      ctx.beginPath(); ctx.arc(px(lx), py(ly), Math.max(3 * d, 26 * S), 0, 2 * Math.PI);
+      ctx.fillStyle = l[0] ? LEDC[l[0]] : css('--panel'); ctx.fill(); ctx.strokeStyle = css('--robot'); ctx.lineWidth = 1 * d; ctx.stroke();
+    });
+    if (lifted) label('LIFTED', x, y - R - 70, css('--bad'), 50);
+  }
+
+  function drawTrail(k, upto) {
+    const d = window.devicePixelRatio || 1, s = trialStart[k];
+    if (s === undefined) return;
+    ctx.beginPath(); ctx.moveTo(px(F[s][X]), py(F[s][Y]));
+    for (let i = s + 1; i <= upto; i++) ctx.lineTo(px(F[i][X]), py(F[i][Y]));
+    ctx.strokeStyle = css('--trail'); ctx.lineWidth = 2 * d; ctx.globalAlpha = 0.8; ctx.stroke(); ctx.globalAlpha = 1;
+  }
+
+  // ---- charts ----
+  const charts = [
+    { el: $('chRange'), series: [[RNG, '--beam-edge']], min: 0, max: 5000, img: null },
+    { el: $('chSpeed'), series: [[-1, '--accent'], [-2, '--bollard']], min: -160, max: 160, img: null, limit: 150 },
+  ];
+  function wheelCmd(f, side) {          // from the speed/radius command
+    const v = f[CV], r = f[CR], b = 230;
+    if (r === 0) return v;
+    if (r === 1) return side ? v : -v;
+    if (r === -1) return side ? -v : v;
+    return side ? v * (r + b / 2) / r : v * (r - b / 2) / r;
+  }
+  function seriesVal(f, s) { return s === -1 ? wheelCmd(f, 0) : s === -2 ? wheelCmd(f, 1) : f[s]; }
+  function drawCharts() {
+    const d = window.devicePixelRatio || 1;
+    charts.forEach(c => {
+      const r = c.el.getBoundingClientRect();
+      c.el.width = Math.round(r.width * d); c.el.height = Math.round(r.height * d);
+      const g = c.el.getContext('2d'), W = c.el.width, H = c.el.height;
+      g.clearRect(0, 0, W, H);
+      const yv = v => H - 4 * d - (v - c.min) / (c.max - c.min) * (H - 8 * d);
+      g.strokeStyle = css('--line'); g.lineWidth = 1 * d;
+      g.beginPath(); g.moveTo(0, yv(c.min < 0 ? 0 : c.min)); g.lineTo(W, yv(c.min < 0 ? 0 : c.min)); g.stroke();
+      if (c.limit) { g.setLineDash([4 * d, 4 * d]); g.strokeStyle = css('--bad');
+        [c.limit, -c.limit].forEach(l => { g.beginPath(); g.moveTo(0, yv(l)); g.lineTo(W, yv(l)); g.stroke(); }); g.setLineDash([]); }
+      // trial boundaries
+      g.strokeStyle = css('--sect');
+      trialStart.forEach((s, k) => { if (k) { const xx = s / (N - 1) * W; g.beginPath(); g.moveTo(xx, 0); g.lineTo(xx, H); g.stroke(); } });
+      c.series.forEach(s => {
+        g.beginPath();
+        for (let i = 0; i < N; i++) { const xx = i / (N - 1) * W, yy = yv(Math.max(c.min, Math.min(c.max, seriesVal(F[i], s[0])))); i ? g.lineTo(xx, yy) : g.moveTo(xx, yy); }
+        g.strokeStyle = css(s[1]); g.lineWidth = 1.5 * d; g.stroke();
+      });
+      c.img = g.getImageData(0, 0, W, H);
+      c.el.onclick = e => { const rr = c.el.getBoundingClientRect(); seek(Math.round((e.clientX - rr.left) / rr.width * (N - 1))); };
+    });
+  }
+  function drawPlayheads() {
+    const d = window.devicePixelRatio || 1;
+    charts.forEach(c => {
+      if (!c.img) return;
+      const g = c.el.getContext('2d'); g.putImageData(c.img, 0, 0);
+      const xx = idx / (N - 1) * c.el.width;
+      g.strokeStyle = css('--fg'); g.lineWidth = 1 * d; g.beginPath(); g.moveTo(xx, 0); g.lineTo(xx, c.el.height); g.stroke();
+    });
+  }
+
+  // ---- panel ----
+  function chips(v, names) { return '<span class="chips">' + names.map((n, i) => `<span class="chip ${v & (1 << i) ? 'on' : ''}">${n}</span>`).join('') + '</span>'; }
+  function telemetry(f) {
+    const k = f[TI], since = (f[T] - b0(k)) / 1000;
+    const l1 = (f[GPO] >> 8) & 3, l2 = (f[GPO] >> 10) & 3;
+    const cmd = f[CR] === 0 ? 'straight' : (Math.abs(f[CR]) === 1 ? 'spin' : `arc r=${f[CR]}`);
+    const rows = [
+      ['Time', `${since >= 0 ? '+' : ''}${since.toFixed(2)} s after B0 <span class="meta">(trial ${k + 1})</span>`],
+      ['LEDs', `<span class="led" style="background:${LEDC[l1]}"></span>${LEDN[l1]} &nbsp; <span class="led" style="background:${LEDC[l2]}"></span>${LEDN[l2]}`],
+      ['Ultrasonic', `${f[RNG]} mm <span class="meta">(ADC ${f[ADC]})</span>`],
+      ['Command', `${f[CV]} mm/s, ${cmd}`],
+      ['Wheels', `L ${f[VL]} &nbsp; R ${f[VR]} mm/s`],
+      ['Gyro', `${(f[GY] / 100).toFixed(2)}° <span class="meta">(${f[GY]})</span>`],
+      ['Encoder L', `${f[ENC]}`],
+      ['Pose', `(${f[X].toFixed(0)}, ${f[Y].toFixed(0)}) mm, ${f[TH].toFixed(1)}°`],
+      ['Bumper', chips(f[BUMP], ['right', 'centre', 'left'])],
+      ['Cliff', chips(f[CLIFF], ['right', 'centre', 'left'])],
+      ['Wheel drop', chips(f[DROP], ['right', 'left'])],
+      ['Buttons', chips(f[BTN], ['B0', 'B1', 'B2'])],
+    ];
+    $('telem').innerHTML = rows.map(r => `<span class="k">${r[0]}</span><span>${r[1]}</span>`).join('');
+    $('rangeNow').textContent = `${f[RNG]} mm`;
+    $('speedNow').textContent = `L ${wheelCmd(f, 0).toFixed(0)} / R ${wheelCmd(f, 1).toFixed(0)}`;
+  }
+
+  function showChecks(k) {
+    selTrial = k;
+    const t = TR[k];
+    $('tabs').innerHTML = TR.length > 1 ? TR.map((t, i) => `<button class="${i === k ? 'sel' : ''}" data-k="${i}">Trial ${i + 1}: ${t.layout}/D${t.deposit}</button>`).join('') : '';
+    $('tabs').querySelectorAll('button').forEach(b => b.onclick = () => showChecks(+b.dataset.k));
+    if (!t) { $('checks').innerHTML = ''; return; }
+    $('checks').innerHTML = t.checks.map(c => `<li><span class="${c.pass ? 'pass' : 'fail'}">${c.pass ? 'PASS' : 'FAIL'}</span><span>${c.name}</span><span class="v">${c.value}</span></li>`).join('');
+    $('outcome').textContent = `Ended: ${t.outcome} after ${t.t_end.toFixed(1)} s. Centre at (${t.end[0].toFixed(0)}, ${t.end[1].toFixed(0)}), facing ${t.end[2].toFixed(0)}°. Gap = robot edge to marker edge.`;
+  }
+
+  const evs = SIM.events;
+  $('events').innerHTML = evs.map((e, i) => {
+    const s = ((e[0] - b0(e[1])) / 1000).toFixed(2);
+    return `<div data-i="${i}" data-t="${e[0]}"><span>${s}s</span><span class="kd k${e[2]}">${e[2]}</span><span>${e[3]}</span></div>`;
+  }).join('');
+  $('events').querySelectorAll('div').forEach(dv => dv.onclick = () => seek(idxAt(+dv.dataset.t)));
+  if (SIM.warnings.length || SIM.driver)
+    $('warnings').innerHTML = `<p class="meta" style="margin:8px 0 0">Drivers: ${SIM.driver}</p>` + SIM.warnings.map(w => `<p class="warn">⚠ ${w}</p>`).join('');
+
+  let lastEvPast = -1;
+  function render() {
+    const f = F[idx];
+    drawArena(f[TI]);
+    drawTrail(f[TI], idx);
+    drawRobot(f);
+    drawPlayheads();
+    telemetry(f);
+    scrub.value = idx;
+    const since = (f[T] - b0(f[TI])) / 1000;
+    $('clock').textContent = `${since.toFixed(2)} s  (${(F[N - 1][T] / 1000).toFixed(0)} s total)`;
+    if (f[TI] !== selTrial && TR[f[TI]]) showChecks(f[TI]);
+    let past = -1; for (let i = 0; i < evs.length && evs[i][0] <= f[T]; i++) past = i;
+    if (past !== lastEvPast) {
+      lastEvPast = past;
+      $('events').querySelectorAll('div').forEach((dv, i) => dv.classList.toggle('past', i <= past));
+    }
+  }
+
+  function tick(ts) {
+    if (playing) {
+      if (lastTs !== null) simT += (ts - lastTs) * speed;
+      lastTs = ts;
+      idx = idxAt(simT);
+      if (idx >= N - 1) { idx = N - 1; setPlaying(false); }
+      render();
+    }
+    requestAnimationFrame(tick);
+  }
+  function setPlaying(p) {
+    playing = p; lastTs = null;
+    if (p && idx >= N - 1) { idx = 0; simT = F[0][T]; }
+    $('play').textContent = p ? 'Pause' : 'Play';
+  }
+  $('play').onclick = () => setPlaying(!playing);
+  $('speed').onchange = e => speed = +e.target.value;
+  scrub.oninput = () => { setPlaying(false); seek(+scrub.value); };
+  window.addEventListener('keydown', e => {
+    if (e.target.tagName === 'SELECT') return;
+    if (e.key === ' ') { e.preventDefault(); setPlaying(!playing); }
+    else if (e.key === 'ArrowRight') seek(idx + (e.shiftKey ? 50 : 1));
+    else if (e.key === 'ArrowLeft') seek(idx - (e.shiftKey ? 50 : 1));
+    else if (e.key === 'Home') seek(0);
+    else if (e.key === 'End') seek(N - 1);
+  });
+  window.addEventListener('resize', resize);
+  matchMedia('(prefers-color-scheme: dark)').addEventListener('change', resize);
+  showChecks(0);
+  resize();
+  // open at a moment: viewer.html#t=12.5 (seconds after B0 of trial 1)
+  const m = location.hash.match(/t=([\d.]+)/);
+  if (m) seek(idxAt(b0(0) + parseFloat(m[1]) * 1000));
+  requestAnimationFrame(tick);
+})();
+</script>
+</body>
+</html>

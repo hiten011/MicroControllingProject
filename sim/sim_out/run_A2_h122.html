@@ -1,0 +1,414 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Kobuki Sim Replay</title>
+<style>
+:root {
+  color-scheme: light dark;
+  --bg: #f6f6f3; --panel: #ffffff; --fg: #1c1c1a; --mut: #6d6d67; --line: #e2e2dc;
+  --plat: #ecebe4; --ledge: #8a877c; --wall: #3b3a36; --sect: #b9b6aa;
+  --bollard: #f08a1c; --marker: #1f7ae0; --ghost: #c9c6ba;
+  --robot: #2b2b28; --robot-fill: rgba(43,43,40,.10); --trail: #7a5cd6;
+  --beam: rgba(31,122,224,.16); --beam-hit: rgba(31,160,90,.28); --beam-edge: #1fa05a;
+  --ok: #1a7f37; --bad: #c62828; --warn: #a15c00; --accent: #7a5cd6;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #141413; --panel: #1d1d1b; --fg: #e9e8e3; --mut: #9b9a93; --line: #31302c;
+    --plat: #26251f; --ledge: #6d6a5f; --wall: #d8d6cc; --sect: #4a4840;
+    --bollard: #ff9a33; --marker: #4c9bff; --ghost: #45443d;
+    --robot: #ecebe4; --robot-fill: rgba(236,235,228,.10); --trail: #a48bff;
+    --beam: rgba(76,155,255,.16); --beam-hit: rgba(70,200,120,.26); --beam-edge: #4cc26b;
+    --ok: #4cc26b; --bad: #ff6b6b; --warn: #f0a640; --accent: #a48bff;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #141413; --panel: #1d1d1b; --fg: #e9e8e3; --mut: #9b9a93; --line: #31302c;
+  --plat: #26251f; --ledge: #6d6a5f; --wall: #d8d6cc; --sect: #4a4840;
+  --bollard: #ff9a33; --marker: #4c9bff; --ghost: #45443d;
+  --robot: #ecebe4; --robot-fill: rgba(236,235,228,.10); --trail: #a48bff;
+  --beam: rgba(76,155,255,.16); --beam-hit: rgba(70,200,120,.26); --beam-edge: #4cc26b;
+  --ok: #4cc26b; --bad: #ff6b6b; --warn: #f0a640; --accent: #a48bff;
+}
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--bg); color: var(--fg); font: 14px/1.45 system-ui, -apple-system, "Segoe UI", sans-serif; }
+header { padding: 16px 16px 8px; max-width: 1400px; margin: auto; display: flex; flex-wrap: wrap; gap: 8px 16px; align-items: baseline; }
+h1 { font-size: 18px; margin: 0; }
+.meta { color: var(--mut); font-size: 13px; }
+.score { margin-left: auto; font-weight: 600; font-variant-numeric: tabular-nums; }
+main { max-width: 1400px; margin: auto; padding: 0 16px 24px; display: grid; grid-template-columns: minmax(0, 1fr) 380px; gap: 16px; }
+@media (max-width: 960px) { main { grid-template-columns: minmax(0, 1fr); } }
+.card { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; }
+#stage { position: relative; aspect-ratio: 1 / 1; max-height: 78vh; width: 100%; }
+#arena { width: 100%; height: 100%; display: block; }
+.controls { display: flex; align-items: center; gap: 10px; padding: 10px 12px; border-top: 1px solid var(--line); flex-wrap: wrap; }
+button, select { font: inherit; color: var(--fg); background: var(--bg); border: 1px solid var(--line); border-radius: 6px; padding: 4px 10px; cursor: pointer; }
+button:hover { border-color: var(--mut); }
+#scrub { flex: 1; min-width: 160px; accent-color: var(--accent); }
+#clock { font-variant-numeric: tabular-nums; min-width: 128px; text-align: right; color: var(--mut); }
+.side { display: flex; flex-direction: column; gap: 16px; min-width: 0; }
+.sec { padding: 12px 14px; }
+.sec h2 { font-size: 12px; text-transform: uppercase; letter-spacing: .04em; color: var(--mut); margin: 0 0 8px; font-weight: 600; }
+.grid { display: grid; grid-template-columns: auto 1fr; gap: 3px 12px; font-variant-numeric: tabular-nums; }
+.grid .k { color: var(--mut); }
+.chips { display: flex; gap: 4px; flex-wrap: wrap; }
+.chip { font-size: 11px; padding: 1px 6px; border-radius: 999px; border: 1px solid var(--line); color: var(--mut); }
+.chip.on { background: var(--bad); border-color: var(--bad); color: #fff; }
+.led { display: inline-block; width: 11px; height: 11px; border-radius: 50%; border: 1px solid var(--line); vertical-align: -1px; margin-right: 4px; }
+.checks { list-style: none; margin: 0; padding: 0; }
+.checks li { display: grid; grid-template-columns: 44px 1fr; gap: 2px 8px; padding: 4px 0; border-bottom: 1px solid var(--line); }
+.checks li:last-child { border-bottom: 0; }
+.checks .v { grid-column: 2; color: var(--mut); font-size: 12px; }
+.pass { color: var(--ok); font-weight: 600; } .fail { color: var(--bad); font-weight: 600; }
+.trialtabs { display: flex; gap: 6px; margin-bottom: 8px; flex-wrap: wrap; }
+.trialtabs button.sel { border-color: var(--accent); color: var(--accent); }
+#events { max-height: 260px; overflow-y: auto; font-size: 12px; font-variant-numeric: tabular-nums; }
+#events div { padding: 2px 4px; border-radius: 4px; cursor: pointer; display: grid; grid-template-columns: 58px 58px 1fr; gap: 6px; }
+#events div:hover { background: var(--bg); }
+#events div.past { color: var(--mut); }
+#events .kd { font-weight: 600; }
+.kHIT, .kFELL, .kSPEED, .kERROR, .kSAFETY { color: var(--bad); }
+.warn { color: var(--warn); font-size: 12px; margin: 4px 0 0; }
+canvas.chart { width: 100%; height: 110px; display: block; cursor: pointer; }
+.chartlab { font-size: 12px; color: var(--mut); margin: 6px 0 2px; display: flex; justify-content: space-between; }
+.full { grid-column: 1 / -1; }
+.empty { padding: 40px; text-align: center; color: var(--mut); }
+</style>
+</head>
+<body>
+<header>
+  <h1>Kobuki Sim Replay</h1>
+  <span class="meta" id="meta"></span>
+  <span class="score" id="score"></span>
+</header>
+<main id="app">
+  <div class="card">
+    <div id="stage"><canvas id="arena" aria-label="Top-down view of the arena and robot"></canvas></div>
+    <div class="controls">
+      <button id="play" title="Space">Play</button>
+      <select id="speed" title="Playback speed">
+        <option value="0.25">0.25x</option><option value="0.5">0.5x</option><option value="1" selected>1x</option>
+        <option value="2">2x</option><option value="4">4x</option><option value="8">8x</option><option value="16">16x</option>
+      </select>
+      <input id="scrub" type="range" min="0" value="0" step="1" aria-label="Timeline">
+      <span id="clock"></span>
+    </div>
+    <div class="sec">
+      <div class="chartlab"><span>Ultrasonic range (mm)</span><span id="rangeNow"></span></div>
+      <canvas class="chart" id="chRange"></canvas>
+      <div class="chartlab"><span>Wheel speed command (mm/s) &mdash; left / right</span><span id="speedNow"></span></div>
+      <canvas class="chart" id="chSpeed"></canvas>
+    </div>
+  </div>
+  <div class="side">
+    <div class="card sec">
+      <h2>Robot</h2>
+      <div class="grid" id="telem"></div>
+    </div>
+    <div class="card sec">
+      <h2>Checks (Table 1)</h2>
+      <div class="trialtabs" id="tabs"></div>
+      <ul class="checks" id="checks"></ul>
+      <div id="outcome" class="meta" style="margin-top:6px"></div>
+    </div>
+    <div class="card sec">
+      <h2>Events</h2>
+      <div id="events"></div>
+      <div id="warnings"></div>
+    </div>
+  </div>
+</main>
+<script>
+const SIM = {"version":1,"seed":58436,"driver":"USART3 115108 baud on PC10/PC11; ADC1 never used","driver_problems":0,"config":{"sensor_offset":0,"beam_half_deg":10,"us_noise":3,"us_latency_ms":100,"gyro_drift_dpm":0,"accel":1000,"gap_tol":25,"align_tol":5,"timeout":120},"warnings":[],"trials":[{"layout":"A","deposit":2,"heading":122.0,"t_b0":0.50,"outcome":"fell off the ledge","t_end":2.02,"side_section":0,"t_sec2":-1.00,"t_sec3":-1.00,"t_sec4":-1.00,"in_storage":0,"margin":-505.8,"gap":716.8,"align":-105.00,"bollard_hits":0,"marker_hit":0,"fell":1,"max_wheel":150.0,"speed_viol":0,"led1":2,"led2":0,"end":[87.2,380.5,122.0],"safety":0,"safety_cmd_ms":-1,"safety_stop_ms":-1,"safety_restart":0,"n_checks":8,"n_pass":2,"checks":[{"name":"Enter section 4 within 30 s","value":"never (went via 0)","pass":false},{"name":"Enter section 3 within 60 s","value":"never","pass":false},{"name":"Entire Kobuki within the storage unit","value":"506 mm outside","pass":false},{"name":"Avoided hitting any bollard","value":"no contact","pass":true},{"name":"Stop 100 mm from deposit D2","value":"gap 717 mm (tol +-25)","pass":false},{"name":"Stop aligned with deposit D2","value":"-105.0 deg (tol +-5)","pass":false},{"name":"Never exceed 150 mm/s","value":"max wheel 150 mm/s","pass":true},{"name":"Stayed on the platform","value":"fell off","pass":false}]}],"arena":{"w":1600,"h":1800,"robot_r":177,"sensor_offset":0,"beam":10,"walls":[[400,400,416,1400],[400,1384,850,1400],[400,400,1200,416],[1184,400,1200,1050],[-50,2200,2050,2300],[1950,45,2050,2300]],"all":[["A1",195,795],["A2",855,1605],["B1",645,195],["B2",1405,1055],["D1",615,1285],["D2",985,655]]},"events":[[20,0,"LED","LED1 GREEN, LED2 OFF"],[500,0,"button","B0 pressed (start)"],[580,0,"cliff","left cliff sensor sees the ledge"],[1520,0,"FELL","fell off the ledge at (87, 381)"]],"frames":[[20,0,200.0,200.0,122.0,5000,0,560,0,0,0,0,0,0,0,0,-1475,58303,0],[40,0,200.0,200.0,122.0,5000,0,560,0,0,0,0,0,0,0,0,-1475,58303,0],[60,0,199.9,200.2,122.0,5000,0,560,0,0,0,0,150,0,20,20,-1475,58305,0],[80,0,199.5,200.7,122.0,5000,0,560,0,0,0,0,150,0,40,40,-1475,58313,0],[100,0,199.0,201.6,122.0,5000,0,560,0,0,0,0,150,0,60,60,-1475,58325,0],[120,0,198.2,202.8,122.0,5000,0,560,0,0,0,0,150,0,80,80,-1475,58342,0],[140,0,197.2,204.4,122.0,5000,0,560,0,0,0,0,150,0,100,100,-1475,58363,0],[160,0,196.1,206.3,122.0,5000,0,560,0,0,0,0,150,0,120,120,-1475,58390,0],[180,0,194.7,208.5,122.0,5000,0,560,0,0,0,0,150,0,140,140,-1475,58421,0],[200,0,193.1,211.1,122.0,5000,0,560,0,0,0,0,150,0,150,150,-1475,58455,0],[220,0,191.5,213.6,122.0,5000,0,560,0,0,0,0,150,0,150,150,-1475,58491,0],[240,0,189.9,216.2,122.0,5000,0,560,0,0,0,0,150,0,150,150,-1475,58526,0],[260,0,188.3,218.7,122.0,5000,0,560,0,0,0,0,150,0,150,150,-1475,58561,0],[280,0,186.7,221.2,122.0,5000,0,560,0,0,0,0,150,0,150,150,-1475,58596,0],[300,0,185.1,223.8,122.0,5000,0,560,0,0,0,0,150,0,150,150,-1475,58631,0],[320,0,183.5,226.3,122.0,5000,0,560,0,0,0,0,150,0,150,150,-1475,58667,0],[340,0,182.0,228.9,122.0,5000,0,560,0,0,0,0,150,0,150,150,-1475,58702,0],[360,0,180.4,231.4,122.0,5000,0,560,0,0,0,0,150,0,150,150,-1475,58737,0],[380,0,178.8,234.0,122.0,5000,0,560,0,0,0,0,150,0,150,150,-1475,58772,0],[400,0,177.2,236.5,122.0,5000,0,560,0,0,0,0,150,0,150,150,-1475,58807,0],[420,0,175.6,239.1,122.0,5000,0,560,0,0,0,0,150,0,150,150,-1475,58842,0],[440,0,174.0,241.6,122.0,5000,0,560,0,0,0,0,150,0,150,150,-1475,58878,0],[460,0,172.4,244.1,122.0,5000,0,560,0,0,0,0,150,0,150,150,-1475,58913,0],[480,0,170.8,246.7,122.0,5000,0,560,0,0,0,0,150,0,150,150,-1475,58948,0],[500,0,169.2,249.2,122.0,5000,0,560,0,0,0,0,150,0,150,150,-1475,58983,0],[520,0,167.6,251.8,122.0,5000,0,560,0,0,0,1,150,0,150,150,-1475,59018,0],[540,0,166.1,254.3,122.0,5000,0,560,0,0,0,1,150,0,150,150,-1475,59053,0],[560,0,164.5,256.9,122.0,5000,0,560,0,0,0,1,150,0,150,150,-1475,59089,0],[580,0,162.9,259.4,122.0,5000,0,560,0,4,0,1,150,0,150,150,-1475,59124,0],[600,0,161.3,261.9,122.0,5000,0,560,0,4,0,1,150,0,150,150,-1475,59159,0],[620,0,159.7,264.5,122.0,5000,0,560,0,4,0,1,150,0,150,150,-1475,59194,0],[640,0,158.1,267.0,122.0,5000,0,560,0,4,0,1,150,0,150,150,-1475,59229,0],[660,0,156.5,269.6,122.0,5000,0,560,0,4,0,1,150,0,150,150,-1475,59264,0],[680,0,154.9,272.1,122.0,5000,0,560,0,4,0,1,150,0,150,150,-1475,59300,0],[700,0,153.3,274.7,122.0,5000,0,560,0,4,0,1,150,0,150,150,-1475,59335,0],[720,0,151.8,277.2,122.0,5000,0,560,0,4,0,0,150,0,150,150,-1475,59370,0],[740,0,150.2,279.8,122.0,5000,0,560,0,4,0,0,150,0,150,150,-1475,59405,0],[760,0,148.6,282.3,122.0,5000,0,560,0,4,0,0,150,0,150,150,-1475,59440,0],[780,0,147.0,284.8,122.0,5000,0,560,0,4,0,0,150,0,150,150,-1475,59476,0],[800,0,145.4,287.4,122.0,5000,0,560,0,4,0,0,150,0,150,150,-1475,59511,0],[820,0,143.8,289.9,122.0,5000,0,560,0,4,0,0,150,0,150,150,-1475,59546,0],[840,0,142.2,292.5,122.0,5000,0,560,0,4,0,0,150,0,150,150,-1475,59581,0],[860,0,140.6,295.0,122.0,5000,0,560,0,4,0,0,150,0,150,150,-1475,59616,0],[880,0,139.0,297.6,122.0,5000,0,560,0,4,0,0,150,0,150,150,-1475,59651,0],[900,0,137.4,300.1,122.0,5000,0,560,0,4,0,0,150,0,150,150,-1475,59687,0],[920,0,135.9,302.7,122.0,5000,0,560,0,4,0,0,150,0,150,150,-1475,59722,0],[940,0,134.3,305.2,122.0,5000,0,560,0,4,0,0,150,0,150,150,-1475,59757,0],[960,0,132.7,307.7,122.0,5000,0,560,0,4,0,0,150,0,150,150,-1475,59792,0],[980,0,131.1,310.3,122.0,5000,0,560,0,4,0,0,150,0,150,150,-1475,59827,0],[1000,0,129.5,312.8,122.0,5000,0,560,0,4,0,0,150,0,150,150,-1475,59862,0],[1020,0,127.9,315.4,122.0,5000,0,560,0,4,0,0,150,0,150,150,-1475,59898,0],[1040,0,126.3,317.9,122.0,5000,0,560,0,4,0,0,150,0,150,150,-1475,59933,0],[1060,0,124.7,320.5,122.0,5000,0,560,0,4,0,0,150,0,150,150,-1475,59968,0],[1080,0,123.1,323.0,122.0,5000,0,560,0,4,0,0,150,0,150,150,-1475,60003,0],[1100,0,121.5,325.6,122.0,5000,0,560,0,4,0,0,150,0,150,150,-1475,60038,0],[1120,0,120.0,328.1,122.0,5000,0,560,0,4,0,0,150,0,150,150,-1475,60073,0],[1140,0,118.4,330.6,122.0,5000,0,560,0,4,0,0,150,0,150,150,-1475,60109,0],[1160,0,116.8,333.2,122.0,5000,0,560,0,4,0,0,150,0,150,150,-1475,60144,0],[1180,0,115.2,335.7,122.0,5000,0,560,0,4,0,0,150,0,150,150,-1475,60179,0],[1200,0,113.6,338.3,122.0,5000,0,560,0,4,0,0,150,0,150,150,-1475,60214,0],[1220,0,112.0,340.8,122.0,5000,0,560,0,4,0,0,150,0,150,150,-1475,60249,0],[1240,0,110.4,343.4,122.0,5000,0,560,0,4,0,0,150,0,150,150,-1475,60284,0],[1260,0,108.8,345.9,122.0,5000,0,560,0,4,0,0,150,0,150,150,-1475,60320,0],[1280,0,107.2,348.4,122.0,5000,0,560,0,4,0,0,150,0,150,150,-1475,60355,0],[1300,0,105.6,351.0,122.0,5000,0,560,0,4,0,0,150,0,150,150,-1475,60390,0],[1320,0,104.1,353.5,122.0,5000,0,560,0,4,0,0,150,0,150,150,-1475,60425,0],[1340,0,102.5,356.1,122.0,5000,0,560,0,4,0,0,150,0,150,150,-1475,60460,0],[1360,0,100.9,358.6,122.0,5000,0,560,0,4,0,0,150,0,150,150,-1475,60496,0],[1380,0,99.3,361.2,122.0,5000,0,560,0,4,0,0,150,0,150,150,-1475,60531,0],[1400,0,97.7,363.7,122.0,5000,0,560,0,4,0,0,150,0,150,150,-1475,60566,0],[1420,0,96.1,366.3,122.0,5000,0,560,0,4,0,0,150,0,150,150,-1475,60601,0],[1440,0,94.5,368.8,122.0,5000,0,560,0,4,0,0,150,0,150,150,-1475,60636,0],[1460,0,92.9,371.3,122.0,5000,0,560,0,4,0,0,150,0,150,150,-1475,60671,0],[1480,0,91.3,373.9,122.0,5000,0,560,0,4,0,0,150,0,150,150,-1475,60707,0],[1500,0,89.8,376.4,122.0,5000,0,560,0,4,0,0,150,0,150,150,-1475,60742,0],[1520,0,88.2,379.0,122.0,5000,0,560,0,4,0,0,150,0,150,150,-1475,60777,0],[1540,0,87.2,380.5,122.0,5000,0,560,0,7,3,0,150,0,150,150,-1475,60812,1],[1560,0,87.2,380.5,122.0,5000,0,560,0,7,3,0,150,0,150,150,-1475,60847,1],[1580,0,87.2,380.5,122.0,5000,0,560,0,7,3,0,150,0,150,150,-1475,60882,1],[1600,0,87.2,380.5,122.0,5000,0,560,0,7,3,0,150,0,150,150,-1475,60918,1],[1620,0,87.2,380.5,122.0,5000,0,560,0,7,3,0,150,0,150,150,-1475,60953,1],[1640,0,87.2,380.5,122.0,5000,0,560,0,7,3,0,150,0,150,150,-1475,60988,1],[1660,0,87.2,380.5,122.0,5000,0,560,0,7,3,0,150,0,150,150,-1475,61023,1],[1680,0,87.2,380.5,122.0,5000,0,560,0,7,3,0,150,0,150,150,-1475,61058,1],[1700,0,87.2,380.5,122.0,5000,0,560,0,7,3,0,150,0,150,150,-1475,61093,1],[1720,0,87.2,380.5,122.0,5000,0,560,0,7,3,0,150,0,150,150,-1475,61129,1],[1740,0,87.2,380.5,122.0,5000,0,560,0,7,3,0,150,0,150,150,-1475,61164,1],[1760,0,87.2,380.5,122.0,5000,0,560,0,7,3,0,150,0,150,150,-1475,61199,1],[1780,0,87.2,380.5,122.0,5000,0,560,0,7,3,0,150,0,150,150,-1475,61234,1],[1800,0,87.2,380.5,122.0,5000,0,560,0,7,3,0,150,0,150,150,-1475,61269,1],[1820,0,87.2,380.5,122.0,5000,0,560,0,7,3,0,150,0,150,150,-1475,61305,1],[1840,0,87.2,380.5,122.0,5000,0,560,0,7,3,0,150,0,150,150,-1475,61340,1],[1860,0,87.2,380.5,122.0,5000,0,560,0,7,3,0,150,0,150,150,-1475,61375,1],[1880,0,87.2,380.5,122.0,5000,0,560,0,7,3,0,150,0,150,150,-1475,61410,1],[1900,0,87.2,380.5,122.0,5000,0,560,0,7,3,0,150,0,150,150,-1475,61445,1],[1920,0,87.2,380.5,122.0,5000,0,560,0,7,3,0,150,0,150,150,-1475,61480,1],[1940,0,87.2,380.5,122.0,5000,0,560,0,7,3,0,150,0,150,150,-1475,61516,1],[1960,0,87.2,380.5,122.0,5000,0,560,0,7,3,0,150,0,150,150,-1475,61551,1],[1980,0,87.2,380.5,122.0,5000,0,560,0,7,3,0,150,0,150,150,-1475,61586,1],[2000,0,87.2,380.5,122.0,5000,0,560,0,7,3,0,150,0,150,150,-1475,61621,1],[2020,0,87.2,380.5,122.0,5000,0,560,0,7,3,0,150,0,150,150,-1475,61656,1],[2040,0,87.2,380.5,122.0,5000,0,560,0,7,3,0,150,0,150,150,-1475,61691,1],[2060,0,87.2,380.5,122.0,5000,0,560,0,7,3,0,150,0,150,150,-1475,61727,1],[2080,0,87.2,380.5,122.0,5000,0,560,0,7,3,0,150,0,150,150,-1475,61762,1],[2100,0,87.2,380.5,122.0,5000,0,560,0,7,3,0,150,0,150,150,-1475,61797,1],[2120,0,87.2,380.5,122.0,5000,0,560,0,7,3,0,150,0,150,150,-1475,61832,1],[2140,0,87.2,380.5,122.0,5000,0,560,0,7,3,0,150,0,150,150,-1475,61867,1],[2160,0,87.2,380.5,122.0,5000,0,560,0,7,3,0,150,0,150,150,-1475,61902,1],[2180,0,87.2,380.5,122.0,5000,0,560,0,7,3,0,150,0,150,150,-1475,61938,1],[2200,0,87.2,380.5,122.0,5000,0,560,0,7,3,0,150,0,150,150,-1475,61973,1],[2220,0,87.2,380.5,122.0,5000,0,560,0,7,3,0,150,0,150,150,-1475,62008,1],[2240,0,87.2,380.5,122.0,5000,0,560,0,7,3,0,150,0,150,150,-1475,62043,1],[2260,0,87.2,380.5,122.0,5000,0,560,0,7,3,0,150,0,150,150,-1475,62078,1],[2280,0,87.2,380.5,122.0,5000,0,560,0,7,3,0,150,0,150,150,-1475,62113,1],[2300,0,87.2,380.5,122.0,5000,0,560,0,7,3,0,150,0,150,150,-1475,62149,1],[2320,0,87.2,380.5,122.0,5000,0,560,0,7,3,0,150,0,150,150,-1475,62184,1],[2340,0,87.2,380.5,122.0,5000,0,560,0,7,3,0,150,0,150,150,-1475,62219,1],[2360,0,87.2,380.5,122.0,5000,0,560,0,7,3,0,150,0,150,150,-1475,62254,1],[2380,0,87.2,380.5,122.0,5000,0,560,0,7,3,0,150,0,150,150,-1475,62289,1],[2400,0,87.2,380.5,122.0,5000,0,560,0,7,3,0,150,0,150,150,-1475,62325,1],[2420,0,87.2,380.5,122.0,5000,0,560,0,7,3,0,150,0,150,150,-1475,62360,1],[2440,0,87.2,380.5,122.0,5000,0,560,0,7,3,0,150,0,150,150,-1475,62395,1],[2460,0,87.2,380.5,122.0,5000,0,560,0,7,3,0,150,0,150,150,-1475,62430,1],[2480,0,87.2,380.5,122.0,5000,0,560,0,7,3,0,150,0,150,150,-1475,62465,1],[2500,0,87.2,380.5,122.0,5000,0,560,0,7,3,0,150,0,150,150,-1475,62500,1],[2520,0,87.2,380.5,122.0,5000,0,560,0,7,3,0,150,0,150,150,-1475,62536,1]]};
+(function () {
+  if (!SIM || !SIM.frames || !SIM.frames.length) {
+    document.getElementById('app').innerHTML = '<div class="card empty full">No simulation data in this file.</div>';
+    return;
+  }
+  const F = SIM.frames, N = F.length, A = SIM.arena, TR = SIM.trials;
+  // frame fields
+  const T=0, TI=1, X=2, Y=3, TH=4, RNG=5, ADC=6, GPO=7, BUMP=8, CLIFF=9, DROP=10, BTN=11, CV=12, CR=13, VL=14, VR=15, GY=16, ENC=17, LIFT=18;
+  const $ = id => document.getElementById(id);
+  const css = n => getComputedStyle(document.documentElement).getPropertyValue(n).trim();
+  const LEDC = ['transparent', '#e53935', '#43a047', '#fbc02d'];
+  const LEDN = ['off', 'red', 'green', 'yellow'];
+
+  // ---- header ----
+  const nP = TR.reduce((s, t) => s + t.n_pass, 0), nC = TR.reduce((s, t) => s + t.n_checks, 0);
+  $('meta').textContent = TR.map(t => `Layout ${t.layout} / D${t.deposit}, start ${Math.round(t.heading)}°`).join('  →  ')
+    + `  ·  seed ${SIM.seed}  ·  sensor ${A.sensor_offset} mm ahead, ±${A.beam}° beam`;
+  $('score').innerHTML = `<span class="${nP === nC ? 'pass' : 'fail'}">${nP} / ${nC} checks pass</span>`;
+
+  // ---- per-trial helpers ----
+  const trialStart = [], trialEnd = [];
+  for (let i = 0; i < N; i++) { const k = F[i][TI]; if (trialStart[k] === undefined) trialStart[k] = i; trialEnd[k] = i; }
+  const b0 = k => TR[k] ? TR[k].t_b0 * 1000 : F[0][T];
+
+  // ---- state ----
+  let idx = 0, playing = false, speed = 1, simT = F[0][T], lastTs = null, selTrial = 0;
+  const scrub = $('scrub'); scrub.max = N - 1;
+
+  function idxAt(t) { let lo = 0, hi = N - 1; while (lo < hi) { const m = (lo + hi + 1) >> 1; if (F[m][T] <= t) lo = m; else hi = m - 1; } return lo; }
+  function seek(i) { idx = Math.max(0, Math.min(N - 1, i)); simT = F[idx][T]; render(); }
+
+  // ---- arena canvas ----
+  const cv = $('arena'), ctx = cv.getContext('2d');
+  const VB = { x0: -520, x1: 2120, y0: -330, y1: 2340 };
+  let S = 1, OX = 0, OY = 0;
+  function resize() {
+    const r = cv.getBoundingClientRect(), d = window.devicePixelRatio || 1;
+    cv.width = Math.round(r.width * d); cv.height = Math.round(r.height * d);
+    S = Math.min(cv.width / (VB.x1 - VB.x0), cv.height / (VB.y1 - VB.y0));
+    OX = (cv.width - (VB.x1 - VB.x0) * S) / 2; OY = (cv.height - (VB.y1 - VB.y0) * S) / 2;
+    drawCharts(); render();
+  }
+  const px = x => OX + (x - VB.x0) * S, py = y => OY + (VB.y1 - y) * S;
+  function circle(x, y, r, fill, stroke, dash) {
+    ctx.beginPath(); ctx.arc(px(x), py(y), r * S, 0, 2 * Math.PI);
+    if (fill) { ctx.fillStyle = fill; ctx.fill(); }
+    if (stroke) { ctx.setLineDash(dash || []); ctx.strokeStyle = stroke; ctx.stroke(); ctx.setLineDash([]); }
+  }
+  function label(t, x, y, col, size) {
+    ctx.fillStyle = col; ctx.font = `${Math.max(10, (size || 40) * S)}px system-ui, sans-serif`;
+    ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText(t, px(x), py(y));
+  }
+
+  function drawArena(k) {
+    const d = window.devicePixelRatio || 1;
+    ctx.fillStyle = css('--bg'); ctx.fillRect(0, 0, cv.width, cv.height);
+    // room walls (index 4,5) hatched
+    A.walls.forEach((w, i) => {
+      const x = px(w[0]), y = py(w[3]), ww = (w[2] - w[0]) * S, hh = (w[3] - w[1]) * S;
+      if (i >= 4) {
+        ctx.save(); ctx.beginPath(); ctx.rect(x, y, ww, hh); ctx.clip();
+        ctx.strokeStyle = css('--ledge'); ctx.lineWidth = 1 * d;
+        for (let t = -hh; t < ww + hh; t += 10 * d) { ctx.beginPath(); ctx.moveTo(x + t, y + hh); ctx.lineTo(x + t + hh, y); ctx.stroke(); }
+        ctx.restore(); ctx.strokeStyle = css('--ledge'); ctx.strokeRect(x, y, ww, hh);
+      }
+    });
+    // platform + ledge
+    ctx.fillStyle = css('--plat'); ctx.fillRect(px(0), py(A.h), A.w * S, A.h * S);
+    ctx.lineWidth = 3 * d; ctx.strokeStyle = css('--ledge'); ctx.strokeRect(px(0), py(A.h), A.w * S, A.h * S);
+    // sections
+    ctx.lineWidth = 1 * d; ctx.setLineDash([6 * d, 6 * d]); ctx.strokeStyle = css('--sect');
+    ctx.beginPath(); ctx.moveTo(px(A.w / 2), py(0)); ctx.lineTo(px(A.w / 2), py(A.h));
+    ctx.moveTo(px(0), py(A.h / 2)); ctx.lineTo(px(A.w), py(A.h / 2)); ctx.stroke(); ctx.setLineDash([]);
+    [[1, 90, 90], [2, 90, 1710], [3, 1510, 1710], [4, 1510, 90]].forEach(s => label(String(s[0]), s[1], s[2], css('--mut'), 70));
+    // storage walls
+    ctx.fillStyle = css('--wall');
+    A.walls.slice(0, 4).forEach(w => ctx.fillRect(px(w[0]), py(w[3]), Math.max(1, (w[2] - w[0]) * S), Math.max(1, (w[3] - w[1]) * S)));
+    ctx.setLineDash([3 * d, 5 * d]); ctx.strokeStyle = css('--mut'); ctx.lineWidth = 1 * d;
+    ctx.beginPath(); ctx.moveTo(px(850), py(1400)); ctx.lineTo(px(1200), py(1050)); ctx.stroke(); ctx.setLineDash([]);
+    label('storage', 800, 900, css('--mut'), 42);
+    // start
+    ctx.lineWidth = 1 * d; circle(200, 200, A.robot_r, null, css('--sect'), [4 * d, 4 * d]);
+    // objects
+    const t = TR[k] || TR[0];
+    const present = new Set(t.layout === 'A' ? ['A1', 'A2'] : ['B1', 'B2']); present.add('D' + t.deposit);
+    A.all.forEach(o => {
+      const on = present.has(o[0]), mk = o[0][0] === 'D';
+      ctx.lineWidth = 1.5 * d;
+      if (on) circle(o[1], o[2], 45, css(mk ? '--marker' : '--bollard'));
+      else circle(o[1], o[2], 45, null, css('--ghost'), [3 * d, 3 * d]);
+      label(o[0], o[1] + 95, o[2], on ? css('--fg') : css('--ghost'), 38);
+    });
+  }
+
+  function drawRobot(f) {
+    const d = window.devicePixelRatio || 1, R = A.robot_r, th = f[TH] * Math.PI / 180;
+    const x = f[X], y = f[Y], lifted = f[LIFT];
+    // ultrasonic beam
+    const so = A.sensor_offset, sx = x + so * Math.cos(th), sy = y + so * Math.sin(th);
+    const half = A.beam * Math.PI / 180, r = f[RNG], hit = r < 5000;
+    const L = hit ? r : 2600;
+    ctx.beginPath(); ctx.moveTo(px(sx), py(sy));
+    ctx.arc(px(sx), py(sy), L * S, -(th + half), -(th - half));
+    ctx.closePath(); ctx.fillStyle = css(hit ? '--beam-hit' : '--beam'); ctx.fill();
+    if (hit) { ctx.beginPath(); ctx.arc(px(sx), py(sy), L * S, -(th + half), -(th - half)); ctx.strokeStyle = css('--beam-edge'); ctx.lineWidth = 2 * d; ctx.stroke(); }
+    // body
+    ctx.lineWidth = 2 * d;
+    circle(x, y, R, css('--robot-fill'), css('--robot'), lifted ? [6 * d, 4 * d] : null);
+    // bumper arcs: right -90..-30, centre -30..30, left 30..90
+    const segs = [[1, -90, -30], [2, -30, 30], [4, 30, 90]];
+    segs.forEach(s => {
+      const on = f[BUMP] & s[0];
+      ctx.beginPath(); ctx.arc(px(x), py(y), (R + 6) * S, -(th + s[2] * Math.PI / 180) + 0.04, -(th + s[1] * Math.PI / 180) - 0.04);
+      ctx.strokeStyle = on ? css('--bad') : css('--sect'); ctx.lineWidth = (on ? 5 : 2) * d; ctx.stroke();
+    });
+    // cliff sensors
+    [[1, -50], [2, 0], [4, 50]].forEach(c => {
+      const a = th + c[1] * Math.PI / 180, cx = x + 165 * Math.cos(a), cy = y + 165 * Math.sin(a);
+      ctx.beginPath(); ctx.arc(px(cx), py(cy), Math.max(2.5 * d, 16 * S), 0, 2 * Math.PI);
+      ctx.fillStyle = (f[CLIFF] & c[0]) ? css('--bad') : css('--mut'); ctx.fill();
+    });
+    // heading
+    ctx.beginPath(); ctx.moveTo(px(x), py(y)); ctx.lineTo(px(x + (R - 25) * Math.cos(th)), py(y + (R - 25) * Math.sin(th)));
+    ctx.strokeStyle = css('--robot'); ctx.lineWidth = 2.5 * d; ctx.stroke();
+    // LEDs
+    const l1 = (f[GPO] >> 8) & 3, l2 = (f[GPO] >> 10) & 3;
+    [[l1, 50], [l2, -50]].forEach(l => {
+      const a = th + Math.PI + l[1] * Math.PI / 180 * 0.6, lx = x + 80 * Math.cos(a), ly = y + 80 * Math.sin(a);
+      ctx.beginPath(); ctx.arc(px(lx), py(ly), Math.max(3 * d, 26 * S), 0, 2 * Math.PI);
+      ctx.fillStyle = l[0] ? LEDC[l[0]] : css('--panel'); ctx.fill(); ctx.strokeStyle = css('--robot'); ctx.lineWidth = 1 * d; ctx.stroke();
+    });
+    if (lifted) label('LIFTED', x, y - R - 70, css('--bad'), 50);
+  }
+
+  function drawTrail(k, upto) {
+    const d = window.devicePixelRatio || 1, s = trialStart[k];
+    if (s === undefined) return;
+    ctx.beginPath(); ctx.moveTo(px(F[s][X]), py(F[s][Y]));
+    for (let i = s + 1; i <= upto; i++) ctx.lineTo(px(F[i][X]), py(F[i][Y]));
+    ctx.strokeStyle = css('--trail'); ctx.lineWidth = 2 * d; ctx.globalAlpha = 0.8; ctx.stroke(); ctx.globalAlpha = 1;
+  }
+
+  // ---- charts ----
+  const charts = [
+    { el: $('chRange'), series: [[RNG, '--beam-edge']], min: 0, max: 5000, img: null },
+    { el: $('chSpeed'), series: [[-1, '--accent'], [-2, '--bollard']], min: -160, max: 160, img: null, limit: 150 },
+  ];
+  function wheelCmd(f, side) {          // from the speed/radius command
+    const v = f[CV], r = f[CR], b = 230;
+    if (r === 0) return v;
+    if (r === 1) return side ? v : -v;
+    if (r === -1) return side ? -v : v;
+    return side ? v * (r + b / 2) / r : v * (r - b / 2) / r;
+  }
+  function seriesVal(f, s) { return s === -1 ? wheelCmd(f, 0) : s === -2 ? wheelCmd(f, 1) : f[s]; }
+  function drawCharts() {
+    const d = window.devicePixelRatio || 1;
+    charts.forEach(c => {
+      const r = c.el.getBoundingClientRect();
+      c.el.width = Math.round(r.width * d); c.el.height = Math.round(r.height * d);
+      const g = c.el.getContext('2d'), W = c.el.width, H = c.el.height;
+      g.clearRect(0, 0, W, H);
+      const yv = v => H - 4 * d - (v - c.min) / (c.max - c.min) * (H - 8 * d);
+      g.strokeStyle = css('--line'); g.lineWidth = 1 * d;
+      g.beginPath(); g.moveTo(0, yv(c.min < 0 ? 0 : c.min)); g.lineTo(W, yv(c.min < 0 ? 0 : c.min)); g.stroke();
+      if (c.limit) { g.setLineDash([4 * d, 4 * d]); g.strokeStyle = css('--bad');
+        [c.limit, -c.limit].forEach(l => { g.beginPath(); g.moveTo(0, yv(l)); g.lineTo(W, yv(l)); g.stroke(); }); g.setLineDash([]); }
+      // trial boundaries
+      g.strokeStyle = css('--sect');
+      trialStart.forEach((s, k) => { if (k) { const xx = s / (N - 1) * W; g.beginPath(); g.moveTo(xx, 0); g.lineTo(xx, H); g.stroke(); } });
+      c.series.forEach(s => {
+        g.beginPath();
+        for (let i = 0; i < N; i++) { const xx = i / (N - 1) * W, yy = yv(Math.max(c.min, Math.min(c.max, seriesVal(F[i], s[0])))); i ? g.lineTo(xx, yy) : g.moveTo(xx, yy); }
+        g.strokeStyle = css(s[1]); g.lineWidth = 1.5 * d; g.stroke();
+      });
+      c.img = g.getImageData(0, 0, W, H);
+      c.el.onclick = e => { const rr = c.el.getBoundingClientRect(); seek(Math.round((e.clientX - rr.left) / rr.width * (N - 1))); };
+    });
+  }
+  function drawPlayheads() {
+    const d = window.devicePixelRatio || 1;
+    charts.forEach(c => {
+      if (!c.img) return;
+      const g = c.el.getContext('2d'); g.putImageData(c.img, 0, 0);
+      const xx = idx / (N - 1) * c.el.width;
+      g.strokeStyle = css('--fg'); g.lineWidth = 1 * d; g.beginPath(); g.moveTo(xx, 0); g.lineTo(xx, c.el.height); g.stroke();
+    });
+  }
+
+  // ---- panel ----
+  function chips(v, names) { return '<span class="chips">' + names.map((n, i) => `<span class="chip ${v & (1 << i) ? 'on' : ''}">${n}</span>`).join('') + '</span>'; }
+  function telemetry(f) {
+    const k = f[TI], since = (f[T] - b0(k)) / 1000;
+    const l1 = (f[GPO] >> 8) & 3, l2 = (f[GPO] >> 10) & 3;
+    const cmd = f[CR] === 0 ? 'straight' : (Math.abs(f[CR]) === 1 ? 'spin' : `arc r=${f[CR]}`);
+    const rows = [
+      ['Time', `${since >= 0 ? '+' : ''}${since.toFixed(2)} s after B0 <span class="meta">(trial ${k + 1})</span>`],
+      ['LEDs', `<span class="led" style="background:${LEDC[l1]}"></span>${LEDN[l1]} &nbsp; <span class="led" style="background:${LEDC[l2]}"></span>${LEDN[l2]}`],
+      ['Ultrasonic', `${f[RNG]} mm <span class="meta">(ADC ${f[ADC]})</span>`],
+      ['Command', `${f[CV]} mm/s, ${cmd}`],
+      ['Wheels', `L ${f[VL]} &nbsp; R ${f[VR]} mm/s`],
+      ['Gyro', `${(f[GY] / 100).toFixed(2)}° <span class="meta">(${f[GY]})</span>`],
+      ['Encoder L', `${f[ENC]}`],
+      ['Pose', `(${f[X].toFixed(0)}, ${f[Y].toFixed(0)}) mm, ${f[TH].toFixed(1)}°`],
+      ['Bumper', chips(f[BUMP], ['right', 'centre', 'left'])],
+      ['Cliff', chips(f[CLIFF], ['right', 'centre', 'left'])],
+      ['Wheel drop', chips(f[DROP], ['right', 'left'])],
+      ['Buttons', chips(f[BTN], ['B0', 'B1', 'B2'])],
+    ];
+    $('telem').innerHTML = rows.map(r => `<span class="k">${r[0]}</span><span>${r[1]}</span>`).join('');
+    $('rangeNow').textContent = `${f[RNG]} mm`;
+    $('speedNow').textContent = `L ${wheelCmd(f, 0).toFixed(0)} / R ${wheelCmd(f, 1).toFixed(0)}`;
+  }
+
+  function showChecks(k) {
+    selTrial = k;
+    const t = TR[k];
+    $('tabs').innerHTML = TR.length > 1 ? TR.map((t, i) => `<button class="${i === k ? 'sel' : ''}" data-k="${i}">Trial ${i + 1}: ${t.layout}/D${t.deposit}</button>`).join('') : '';
+    $('tabs').querySelectorAll('button').forEach(b => b.onclick = () => showChecks(+b.dataset.k));
+    if (!t) { $('checks').innerHTML = ''; return; }
+    $('checks').innerHTML = t.checks.map(c => `<li><span class="${c.pass ? 'pass' : 'fail'}">${c.pass ? 'PASS' : 'FAIL'}</span><span>${c.name}</span><span class="v">${c.value}</span></li>`).join('');
+    $('outcome').textContent = `Ended: ${t.outcome} after ${t.t_end.toFixed(1)} s. Centre at (${t.end[0].toFixed(0)}, ${t.end[1].toFixed(0)}), facing ${t.end[2].toFixed(0)}°. Gap = robot edge to marker edge.`;
+  }
+
+  const evs = SIM.events;
+  $('events').innerHTML = evs.map((e, i) => {
+    const s = ((e[0] - b0(e[1])) / 1000).toFixed(2);
+    return `<div data-i="${i}" data-t="${e[0]}"><span>${s}s</span><span class="kd k${e[2]}">${e[2]}</span><span>${e[3]}</span></div>`;
+  }).join('');
+  $('events').querySelectorAll('div').forEach(dv => dv.onclick = () => seek(idxAt(+dv.dataset.t)));
+  if (SIM.warnings.length || SIM.driver)
+    $('warnings').innerHTML = `<p class="meta" style="margin:8px 0 0">Drivers: ${SIM.driver}</p>` + SIM.warnings.map(w => `<p class="warn">⚠ ${w}</p>`).join('');
+
+  let lastEvPast = -1;
+  function render() {
+    const f = F[idx];
+    drawArena(f[TI]);
+    drawTrail(f[TI], idx);
+    drawRobot(f);
+    drawPlayheads();
+    telemetry(f);
+    scrub.value = idx;
+    const since = (f[T] - b0(f[TI])) / 1000;
+    $('clock').textContent = `${since.toFixed(2)} s  (${(F[N - 1][T] / 1000).toFixed(0)} s total)`;
+    if (f[TI] !== selTrial && TR[f[TI]]) showChecks(f[TI]);
+    let past = -1; for (let i = 0; i < evs.length && evs[i][0] <= f[T]; i++) past = i;
+    if (past !== lastEvPast) {
+      lastEvPast = past;
+      $('events').querySelectorAll('div').forEach((dv, i) => dv.classList.toggle('past', i <= past));
+    }
+  }
+
+  function tick(ts) {
+    if (playing) {
+      if (lastTs !== null) simT += (ts - lastTs) * speed;
+      lastTs = ts;
+      idx = idxAt(simT);
+      if (idx >= N - 1) { idx = N - 1; setPlaying(false); }
+      render();
+    }
+    requestAnimationFrame(tick);
+  }
+  function setPlaying(p) {
+    playing = p; lastTs = null;
+    if (p && idx >= N - 1) { idx = 0; simT = F[0][T]; }
+    $('play').textContent = p ? 'Pause' : 'Play';
+  }
+  $('play').onclick = () => setPlaying(!playing);
+  $('speed').onchange = e => speed = +e.target.value;
+  scrub.oninput = () => { setPlaying(false); seek(+scrub.value); };
+  window.addEventListener('keydown', e => {
+    if (e.target.tagName === 'SELECT') return;
+    if (e.key === ' ') { e.preventDefault(); setPlaying(!playing); }
+    else if (e.key === 'ArrowRight') seek(idx + (e.shiftKey ? 50 : 1));
+    else if (e.key === 'ArrowLeft') seek(idx - (e.shiftKey ? 50 : 1));
+    else if (e.key === 'Home') seek(0);
+    else if (e.key === 'End') seek(N - 1);
+  });
+  window.addEventListener('resize', resize);
+  matchMedia('(prefers-color-scheme: dark)').addEventListener('change', resize);
+  showChecks(0);
+  resize();
+  // open at a moment: viewer.html#t=12.5 (seconds after B0 of trial 1)
+  const m = location.hash.match(/t=([\d.]+)/);
+  if (m) seek(idxAt(b0(0) + parseFloat(m[1]) * 1000));
+  requestAnimationFrame(tick);
+})();
+</script>
+</body>
+</html>
