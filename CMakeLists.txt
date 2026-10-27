@@ -59,6 +59,9 @@ target_sources(${PROJECT_NAME} PRIVATE
   "Src/FSM_state/states/state_pathfind_realign.c"
   "Src/FSM_state/states/state_pathfind_front_cliff_turn.c"
   "Src/FSM_state/states/state_pathfind_front_cliff_stop.c"
+  "Src/FSM_state/states/state_storage_turn.c"
+  "Src/FSM_state/states/state_storage_drive_in.c"
+  "Src/FSM_state/states/state_storage_deposit.c"
   "Src/FSM_state/states/state_fault.c"
   "Src/Helper/helper.c"
 )
