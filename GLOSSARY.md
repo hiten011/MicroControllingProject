@@ -96,8 +96,32 @@ The direction the AMU holds while driving a corridor. It is set afresh at the st
 _Avoid_: bearing, heading (alone, which also names the Centre heading)
 
 **Pathfind**:
-The phase in which the AMU drives the first corridor and then the second, keeping clear of the storage wall and the ledge.
+The phase in which the AMU drives the first corridor and then the second, keeping clear of the storage wall and the ledge. It spans Drive, Wall hit, Ledge hit, Realign, Front-cliff turn and Front-cliff stop.
 _Avoid_: navigate, route-follow, PATHFIND 1 / PATHFIND 2 (it is one phase run twice)
+
+**Drive**:
+The State in which the AMU drives forward along the current corridor until a front cliff, the storage wall or the ledge intervenes.
+_Avoid_: PATHFIND_DRIVE (code id), cruise
+
+**Wall hit**:
+The State in which the AMU turns a fixed angle away from the storage wall after that side's bumper fires.
+_Avoid_: wall correct, bumper turn
+
+**Ledge hit**:
+The State in which the AMU turns a fixed angle away from the ledge after that side's cliff fires.
+_Avoid_: ledge correct, cliff turn
+
+**Realign**:
+The State in which the AMU turns the shortest way back to the corridor heading after a Wall hit or Ledge hit.
+_Avoid_: re-centre, recover heading
+
+**Front-cliff turn**:
+The State at the end of the first corridor: the AMU turns 90° onto the second corridor and latches a new corridor heading.
+_Avoid_: corner turn, mid-route turn
+
+**Front-cliff stop**:
+The State at the end of the second corridor: the AMU stops and holds, ending Pathfind until Storage is built.
+_Avoid_: pathfind done, arrival
 
 **Storage** (phase):
 The phase in which the AMU turns to face the entrance and drives into the storage unit.

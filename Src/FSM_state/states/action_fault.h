@@ -9,7 +9,7 @@ extern const FSM_Action action_fault_all;
 // B1, wheeldrop or any bumper: go to FAULT. The cliff is ignored. Listed first in ALIGN.
 extern const FSM_Action action_fault_ignore_cliff;
 
-// B1 or wheeldrop: go to FAULT. Bumper and cliff ignored. Listed first in PATHFIND.
+// B1 or wheeldrop: go to FAULT. Bumper and cliff ignored. Listed first in every Pathfind State.
 extern const FSM_Action action_fault_b1_wheeldrop;
 
 #endif

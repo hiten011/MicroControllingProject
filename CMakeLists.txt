@@ -53,7 +53,12 @@ target_sources(${PROJECT_NAME} PRIVATE
   "Src/FSM_state/states/state_spin.c"
   "Src/FSM_state/states/state_align.c"
   "Src/FSM_state/states/state_orient.c"
-  "Src/FSM_state/states/state_pathfind.c"
+  "Src/FSM_state/states/state_pathfind_drive.c"
+  "Src/FSM_state/states/state_pathfind_wall_hit.c"
+  "Src/FSM_state/states/state_pathfind_ledge_hit.c"
+  "Src/FSM_state/states/state_pathfind_realign.c"
+  "Src/FSM_state/states/state_pathfind_front_cliff_turn.c"
+  "Src/FSM_state/states/state_pathfind_front_cliff_stop.c"
   "Src/FSM_state/states/state_fault.c"
   "Src/Helper/helper.c"
 )
