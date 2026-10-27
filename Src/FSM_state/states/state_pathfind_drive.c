@@ -46,14 +46,14 @@ static const FSM_Action drive_to_front_cliff_stop = {
     .next_state = FSM_ST_PATHFIND_FRONT_CLIFF_STOP,
 };
 
-static const FSM_Action drive_to_wall_hit = {
+static const FSM_Action drive_to_reverse_wall = {
     .condition = storage_wall_bumper,
-    .next_state = FSM_ST_PATHFIND_WALL_HIT,
+    .next_state = FSM_ST_PATHFIND_REVERSE,
 };
 
-static const FSM_Action drive_to_ledge_hit = {
+static const FSM_Action drive_to_reverse_ledge = {
     .condition = ledge_cliff,
-    .next_state = FSM_ST_PATHFIND_LEDGE_HIT,
+    .next_state = FSM_ST_PATHFIND_REVERSE,
 };
 
 // No condition: the do / of the State, runs when no Action above it ran.
@@ -66,8 +66,8 @@ static const FSM_Action *const drive_actions[] = {
     &action_fault_b1_wheeldrop,
     &drive_to_front_cliff_turn,
     &drive_to_front_cliff_stop,
-    &drive_to_wall_hit,
-    &drive_to_ledge_hit,
+    &drive_to_reverse_wall,
+    &drive_to_reverse_ledge,
     &drive_on,
 };
 
