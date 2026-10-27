@@ -52,6 +52,8 @@ target_sources(${PROJECT_NAME} PRIVATE
   "Src/FSM_state/states/state_detect.c"
   "Src/FSM_state/states/state_spin.c"
   "Src/FSM_state/states/state_align.c"
+  "Src/FSM_state/states/state_orient.c"
+  "Src/FSM_state/states/state_pathfind.c"
   "Src/FSM_state/states/state_fault.c"
   "Src/Helper/helper.c"
 )

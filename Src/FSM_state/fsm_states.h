@@ -23,6 +23,13 @@
 #define FSM_LAYOUT_SPLIT_MM 450U
 #define FSM_LAYOUT_A_MAX_MM 650U
 
+// Align: anticlockwise from first-detection heading to centre heading. 0 until measured.
+#define FSM_ALIGNMENT_OFFSET_DEG 0
+
+// Orient: Layout A turns CW to the bottom corridor; Layout B turns ACW to the left corridor.
+#define FSM_ORIENT_A_DEG (-90)
+#define FSM_ORIENT_B_DEG 90
+
 // Kobuki angle: one tick is 0.01 degree and the reading wraps at +/-180 degrees.
 #define FSM_ANGLE_TICKS_PER_DEG   100
 #define FSM_ANGLE_TICKS_HALF_TURN 18000
@@ -40,6 +47,8 @@ typedef struct {
     int16_t swept_deg;      // Angle spun in the current Sweep, + = anticlockwise
     uint8_t sweep_count;    // Sweeps finished without a Detection
     int16_t last_angle;     // kobuki.angle (ticks) at the last Spin exit
+    int16_t heading;        // Corridor heading (kobuki.angle ticks), latched by Orient
+    uint8_t corridor;       // 1 = first corridor, 2 = second; set by Orient / Pathfind
 } FSM_Data;
 
 extern FSM_Data fsm_data;
@@ -54,7 +63,9 @@ typedef enum {
     FSM_ST_SEARCH,
     FSM_ST_DETECT,
     FSM_ST_SPIN,
-    FSM_ST_ALIGN,  // Stub: holds the AMU still. Not built yet.
+    FSM_ST_ALIGN,
+    FSM_ST_ORIENT,
+    FSM_ST_PATHFIND,  // Stub: holds the AMU still. Pathfind not built yet.
     FSM_ST_FAULT,
     FSM_ST_COUNT
 } FSM_State_Id;
@@ -64,6 +75,8 @@ extern const FSM_State state_search;
 extern const FSM_State state_detect;
 extern const FSM_State state_spin;
 extern const FSM_State state_align;
+extern const FSM_State state_orient;
+extern const FSM_State state_pathfind;
 extern const FSM_State state_fault;
 
 extern const FSM_State *const fsm_states[FSM_ST_COUNT];
