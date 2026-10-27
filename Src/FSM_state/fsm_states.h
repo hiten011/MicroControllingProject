@@ -25,11 +25,11 @@
 // Layout ranges in mm. Placeholders until measured on the hardware.
 // Layout A: far bollard, SPLIT < range <= A_MAX. Layout B: near bollard, B_MIN <= range <= SPLIT.
 #define FSM_LAYOUT_B_MIN_MM 300U
-#define FSM_LAYOUT_SPLIT_MM 450U
+#define FSM_LAYOUT_SPLIT_MM 500U
 #define FSM_LAYOUT_A_MAX_MM 650U
 
 // Align: anticlockwise from first-detection heading to centre heading. 0 until measured.
-#define FSM_ALIGNMENT_OFFSET_DEG 0
+#define FSM_ALIGNMENT_OFFSET_DEG 10
 
 // Orient: Layout A turns CW to the bottom corridor; Layout B turns ACW to the left corridor.
 #define FSM_ORIENT_A_DEG (-90)
