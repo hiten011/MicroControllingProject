@@ -172,48 +172,57 @@ void Kobuki_Rotate(int16_t speed)
 
 void Kobuki_Rotate_Angle_Setpoint(int16_t current_angle_tick, int16_t rot_angle_deg)
 {
-    volatile int32_t init_angle;
+    int32_t init_angle;
 
     rotation_complete = 0;
 
-    // Initial angle
+    // Convert encoder ticks to degrees [0, 360]
     init_angle =
-        (int32_t)((double)(current_angle_tick + (int32_t)18000) * DEG_PER_TICK);  // [-18000, 18000] -> [0, 360] degrees
+        (int32_t)((double)(current_angle_tick + (int32_t)18000) * DEG_PER_TICK);
 
-    // Setpoint angle
-    setpoint_angle_deg = (init_angle + rot_angle_deg + 360) % 360;
-    // [0, 360]
+    // Calculate target angle
+    setpoint_angle_deg = (init_angle + rot_angle_deg) % 360;
+
+    // Handle negative angles correctly
+    if (setpoint_angle_deg < 0) {
+        setpoint_angle_deg += 360;
+    }
 }
 
 void Kobuki_Rotate_Angle(int16_t current_angle_tick)
 {
-    volatile int16_t speed;
-    volatile int16_t error;
-    volatile int32_t current_angle_deg;
+    int16_t speed;
+    int16_t error;
+    int32_t current_angle_deg;
 
-    current_angle_deg = (int32_t)((double)(current_angle_tick + (int32_t)18000) * DEG_PER_TICK);
+    // Convert encoder ticks to degrees
+    current_angle_deg = (int32_t)(
+        (double)(current_angle_tick + (int32_t)18000) * DEG_PER_TICK
+    );
 
+    // Calculate difference between target and current angle
     error = (int16_t)(setpoint_angle_deg - current_angle_deg);
 
-    // Check for non-optimal rotation angle
-    if (abs(error) > 180) {
-        // Always rotate with the minimum angle, e.g. +270 -> -90.
-        // Introduces singularity: loses sign and truncates error.
-        error = -sign(error) * (abs(error) % 180);
-
-        // Special cases in circular buffer: offset to correct error.
-        if ((error < 0) && (current_angle_deg < setpoint_angle_deg)) {
-            error = -(error + 180);
-        } else if ((error > 0) && (current_angle_deg > setpoint_angle_deg)) {
-            error = -(error - 180);
-            // Does this make sense? Is there a simpler way?
-        }
+    // Normalise angle to -180 to +180 degrees
+    if (error > 180) {
+        error -= 360;
+    }
+    else if (error < -180) {
+        error += 360;
     }
 
-    if (abs(error) <= 0) {
+    // Stop when within 2 degrees of target
+    if (abs(error) <= 2) {
         rotation_complete = 1;
-    } else {
-        speed = (sign(error) * MIN_SPEED) + (int16_t)(GAIN_ROTATE * error);
+        Kobuki_Rotate(0);
+    }
+    else {
+        rotation_complete = 0;
+
+        // Calculate rotation speed and direction
+        speed = (sign(error) * MIN_SPEED)
+              + (int16_t)(GAIN_ROTATE * error);
+
         Kobuki_Rotate(speed);
     }
 }
