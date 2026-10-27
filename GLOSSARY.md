@@ -96,11 +96,15 @@ The direction the AMU holds while driving a corridor. It is set afresh at the st
 _Avoid_: bearing, heading (alone, which also names the Centre heading)
 
 **Pathfind**:
-The phase in which the AMU drives the first corridor and then the second, keeping clear of the storage wall and the ledge. It spans Drive, Reverse, Rotate, Front-cliff turn and Front-cliff stop.
+The phase in which the AMU drives the first corridor and then the second, keeping clear of the storage wall and the ledge. It spans Drive, Reverse, Rotate, Corridor turn and Corridor stop.
 _Avoid_: navigate, route-follow, PATHFIND 1 / PATHFIND 2 (it is one phase run twice)
 
+**Corridor length**:
+The fixed distance the AMU must travel along each corridor before that corridor ends. Progress is net forward travel from the start of the corridor (reversals count against it).
+_Avoid_: path length, segment length
+
 **Drive**:
-The State in which the AMU drives forward along the current corridor until a front cliff, the storage wall or the ledge intervenes. A storage-wall bumper or ledge cliff sends it into Reverse; a front cliff ends the corridor.
+The State in which the AMU drives forward along the current corridor until the Corridor length is reached, or the storage wall or the ledge intervenes. A storage-wall bumper or ledge cliff sends it into Reverse; reaching the Corridor length ends the corridor.
 _Avoid_: PATHFIND_DRIVE (code id), cruise
 
 **Reverse**:
@@ -111,13 +115,13 @@ _Avoid_: Realign, back-off, PATHFIND_REVERSE (code id)
 The State in which the AMU turns the shortest way back to the corridor heading after Reverse, then returns to Drive with no forward resume.
 _Avoid_: Realign, Spin (Search), Turn (Storage), PATHFIND_ROTATE (code id)
 
-**Front-cliff turn**:
+**Corridor turn**:
 The State at the end of the first corridor: the AMU turns 90° onto the second corridor and latches a new corridor heading.
-_Avoid_: corner turn, mid-route turn
+_Avoid_: Front-cliff turn, corner turn, mid-route turn
 
-**Front-cliff stop**:
+**Corridor stop**:
 The State at the end of the second corridor: the AMU stops once, ending Pathfind, then moves straight into Storage Turn.
-_Avoid_: pathfind done, arrival
+_Avoid_: Front-cliff stop, pathfind done, arrival
 
 **Storage** (phase):
 The phase in which the AMU faces the entrance, drives into the storage unit, and finishes at the Deposit State. It spans Turn, Drive-in and Deposit.

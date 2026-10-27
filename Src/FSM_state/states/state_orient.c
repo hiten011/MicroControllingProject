@@ -17,6 +17,7 @@ static void latch_corridor_heading(void)
 {
     fsm_data.heading = fsm_data.kobuki.angle;
     fsm_data.corridor = 1;
+    fsm_data.corridor_start_distance = fsm_data.kobuki.distance;
 }
 
 static void orient_rotate(void)

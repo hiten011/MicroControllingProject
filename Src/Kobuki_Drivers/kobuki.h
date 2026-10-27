@@ -50,6 +50,8 @@ void Kobuki_Rotate_Angle_Setpoint(int16_t current_angle_tick, int16_t rot_angle_
 void Kobuki_Rotate_Angle(int16_t current_angle_tick);
 void Kobuki_Drive_Distance_Setpoint(uint16_t current_distance_tick, int16_t distance);
 void Kobuki_Drive_Distance(uint16_t current_distance_tick);
+// Signed wheel travel in mm from start_tick to current_tick (uint16 wrap-aware).
+int32_t Kobuki_Distance_Delta_Mm(uint16_t start_tick, uint16_t current_tick);
 
 // kobuki update LEDs
 void Kobuki_Update_LEDs(Kobuki_LED_Enum led_1_colour, Kobuki_LED_Enum led_2_colour);
