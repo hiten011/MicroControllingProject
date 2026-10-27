@@ -7,13 +7,11 @@
 #include <stdio.h>
 #include <string.h>
 
-/* Child process started by run_process. handle is a pid or an OS handle. */
 typedef struct {
     intptr_t handle;
     int      live;
 } HostProc;
 
-/* '/' is the join separator because fopen accepts it on Windows and POSIX. */
 static inline void path_join(char *out, size_t n, const char *a, const char *b)
 {
     size_t len;

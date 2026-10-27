@@ -212,10 +212,6 @@ static void adc_cr_written(uint32_t old_v, uint32_t cr)
     ADC1->CR = cr;
 }
 
-/* -------------------------------------------------------------------- */
-/* Called by the Windows register trap (sim_mmio_win.c).                 */
-/* -------------------------------------------------------------------- */
-
 void periph_before_read(uintptr_t reg)
 {
     if (reg == ADDR(USART3->ISR)) {
