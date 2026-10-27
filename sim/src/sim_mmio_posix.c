@@ -1,10 +1,3 @@
-/*
- * sim_mmio_posix.c - map STM32 peripheral addresses with mmap.
- *
- * Unix builds define SIM_SHIM, so USART3 and ADC1 are not touched as
- * registers. mmio_init ignores trap and leaves every page read/write.
- * RCC and GPIO still need their real addresses because the headers point there.
- */
 #include "sim.h"
 
 #include <errno.h>
@@ -17,9 +10,9 @@
 #endif
 
 static const struct { uintptr_t base; size_t size; } regions[] = {
-    { 0x40000000u, 0x30000u },   /* APB1, APB2, AHB1 (RCC @ 0x40021000)    */
-    { 0x48000000u, 0x10000u },   /* AHB2: GPIOA..G                         */
-    { 0x50000000u, 0x10000u },   /* AHB2: ADC1/2 + common                  */
+    { 0x40000000u, 0x30000u },
+    { 0x48000000u, 0x10000u },
+    { 0x50000000u, 0x10000u },
 };
 
 int mmio_init(int trap)

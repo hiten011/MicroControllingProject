@@ -92,7 +92,6 @@ typedef struct {
 
 extern Robot rb;
 
-/* ---- sim_mmio_win.c / sim_mmio_posix.c ------------------------------ */
 int  mmio_init(int trap);
 void mmio_unprotect_all(void);
 

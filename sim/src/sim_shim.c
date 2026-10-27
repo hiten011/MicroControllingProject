@@ -1,10 +1,3 @@
-/*
- * sim_shim.c - debugger-friendly replacement for uart.c and adc.c.
- *
- * The Windows register-trap build faults every USART3 and ADC1 access,
- * which confuses gdb. Unix builds, and "build.bat shim", link this file
- * instead of those two drivers. Code above them is still the firmware.
- */
 #include <stdint.h>
 #include "sim.h"
 

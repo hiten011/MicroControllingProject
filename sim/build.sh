@@ -1,5 +1,4 @@
 #!/usr/bin/env bash
-# Build kobuki_sim for Linux and macOS. Always uses SIM_SHIM.
 set -euo pipefail
 
 SIM="$(cd "$(dirname "$0")" && pwd)"
