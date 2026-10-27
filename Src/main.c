@@ -82,11 +82,9 @@ static void change_to(State next)
             Kobuki_Drive_Distance_Setpoint(robot.kobuki.distance, -PATHFIND_REVERSE_MM);
             break;
 
-        case ST_PATHFIND_ROTATE: {
-            int16_t deg = (robot.layout == LAYOUT_A) ? PATHFIND_ROTATE_A_DEG : PATHFIND_ROTATE_B_DEG;
-            Kobuki_Rotate_Angle_Setpoint(robot.kobuki.angle, deg);
+        case ST_PATHFIND_ROTATE:
+            Kobuki_Rotate_Angle_Setpoint(robot.kobuki.angle, robot.pathfind_recover_deg);
             break;
-        }
 
         case ST_PATHFIND_CORRIDOR_TURN: {
             int16_t deg = (robot.layout == LAYOUT_A) ? PATHFIND_CORNER_A_DEG : PATHFIND_CORNER_B_DEG;
@@ -253,8 +251,10 @@ int main(void)
             case ST_PATHFIND_DRIVE: {
                 bool corridor_done = Kobuki_Distance_Delta_Mm(robot.corridor_start_distance, robot.kobuki.distance) >=
                                      corridor_length_mm();
-                uint8_t wall_mask = (robot.layout == LAYOUT_A) ? SIDE_RIGHT : SIDE_LEFT;
-                uint8_t ledge_mask = (robot.layout == LAYOUT_A) ? SIDE_LEFT : SIDE_RIGHT;
+                // Orient A=-90 / B=+90: storage wall is left on A and right on B; ledge is the other side.
+                uint8_t wall_mask = (robot.layout == LAYOUT_A) ? SIDE_LEFT : SIDE_RIGHT;
+                uint8_t ledge_mask = (robot.layout == LAYOUT_A) ? SIDE_RIGHT : SIDE_LEFT;
+                int16_t wall_nudge = (robot.layout == LAYOUT_A) ? PATHFIND_ROTATE_A_DEG : PATHFIND_ROTATE_B_DEG;
 
                 if (b1_or_wheeldrop()) {
                     change_to(ST_FAULT);
@@ -268,7 +268,13 @@ int main(void)
                     change_to(ST_PATHFIND_CORRIDOR_STOP);
                     break;
                 }
-                if ((robot.kobuki.bumper & wall_mask) != 0 || (robot.kobuki.cliff & ledge_mask) != 0) {
+                if ((robot.kobuki.bumper & wall_mask) != 0) {
+                    robot.pathfind_recover_deg = wall_nudge;
+                    change_to(ST_PATHFIND_REVERSE);
+                    break;
+                }
+                if ((robot.kobuki.cliff & ledge_mask) != 0) {
+                    robot.pathfind_recover_deg = (int16_t)(-wall_nudge);
                     change_to(ST_PATHFIND_REVERSE);
                     break;
                 }

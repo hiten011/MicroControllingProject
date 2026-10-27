@@ -32,8 +32,9 @@
 #define PATHFIND_CORNER_A_DEG    90
 #define PATHFIND_CORNER_B_DEG    (-90)
 #define PATHFIND_REVERSE_MM      50
-#define PATHFIND_ROTATE_A_DEG    10
-#define PATHFIND_ROTATE_B_DEG    (-10)
+// Nudge away from the storage wall after Reverse (ledge recovery uses the negation).
+#define PATHFIND_ROTATE_A_DEG    (-10) // CW: storage wall is on the left in Layout A
+#define PATHFIND_ROTATE_B_DEG    10    // ACW: storage wall is on the right in Layout B
 
 #define STORAGE_TURN_A_DEG  135
 #define STORAGE_TURN_B_DEG  (-135)
@@ -48,6 +49,7 @@ typedef struct {
     int16_t heading;
     uint8_t corridor;
     uint16_t corridor_start_distance;
+    int16_t pathfind_recover_deg; // Set at Reverse entry; Rotate uses this nudge
 } RobotData;
 
 extern RobotData robot;
