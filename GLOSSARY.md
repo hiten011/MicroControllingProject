@@ -40,7 +40,7 @@ _Avoid_: drop point, bay
 ### Finding the layout
 
 **Search**:
-The phase in which the AMU looks for a bollard so that it can learn the Layout. It ends when a Layout is learned or when the AMU gives up.
+The phase in which the AMU looks for a bollard so that it can learn the Layout. It ends when SEARCH stores Layout A or Layout B and enters Align, or when a Detection has no Layout and SEARCH enters Fault.
 _Avoid_: Scan
 
 **Detect**:
@@ -48,7 +48,7 @@ One ultrasonic reading taken while the AMU is stationary, recording whether an o
 _Avoid_: Ping, sample
 
 **Detection**:
-A Detect reading in which an object is within detection range. The first Detection ends the Search and fixes the Layout.
+A Detect reading in which an object is within detection range. SEARCH stores the Layout and enters Align when the class is A or B. When the class is LAYOUT_NONE, SEARCH enters Fault and leaves the stored Layout unchanged.
 _Avoid_: Hit
 
 **Spin**:
@@ -146,7 +146,7 @@ The State in which the AMU holds still until B0 (start) is pressed. It is the fi
 _Avoid_: Standby, Ready, IDLE (code id)
 
 **Fault**:
-The State the AMU stops in when it must not go on: B1 pressed, a wheel dropped, an unexpected bumper or cliff (which ones depends on the State), or a Search that gives up. It stops the motors, then returns to Idle on the next Tick. The diagram calls it STOP / FAULT.
+The State the AMU stops in when it must not go on: B1 pressed, a wheel dropped, an unexpected bumper or cliff (which ones depends on the State), or a Detection whose layout is LAYOUT_NONE. It stops the motors, then returns to Idle on the next Tick. The diagram calls it STOP / FAULT.
 _Avoid_: Error, Stop, E-stop
 
 **State**:
