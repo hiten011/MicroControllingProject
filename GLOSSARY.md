@@ -112,7 +112,7 @@ The State in which the AMU backs a fixed distance clear of the storage wall or t
 _Avoid_: Realign, back-off, PATHFIND_REVERSE (code id)
 
 **Rotate**:
-The State in which the AMU turns the shortest way back to the corridor heading after Reverse, then returns to Drive with no forward resume.
+The State in which the AMU turns a fixed angle after Reverse (Layout A anticlockwise, Layout B clockwise), then returns to Drive with no forward resume. It does not restore the corridor heading.
 _Avoid_: Realign, Spin (Search), Turn (Storage), PATHFIND_ROTATE (code id)
 
 **Corridor turn**:

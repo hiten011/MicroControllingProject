@@ -2,7 +2,7 @@
 
 How the AMU drives the two corridors while staying clear of the storage wall and the ledge. Terms match [`GLOSSARY.md`](../GLOSSARY.md). The diagram is [`amu_fsm.drawio`](amu_fsm.drawio) (preview: [`amu_fsm_preview.png`](amu_fsm_preview.png)).
 
-Pathfind runs once per corridor (`corridor = 1`, then `corridor = 2` after Corridor turn). Layout A has the storage wall on the left and the ledge on the right; Layout B is the mirror image.
+Pathfind runs once per corridor (`corridor = 1`, then `corridor = 2` after Corridor turn). Layout A has the storage wall on the right and the ledge on the left; Layout B is the mirror image.
 
 ## States
 
@@ -10,7 +10,7 @@ Pathfind runs once per corridor (`corridor = 1`, then `corridor = 2` after Corri
 | --- | --- |
 | **Drive** | Cruise forward along the corridor heading |
 | **Reverse** | Back a fixed distance after a wall bumper or ledge cliff |
-| **Rotate** | Turn the shortest way back to the corridor heading |
+| **Rotate** | Fixed layout nudge after Reverse (A +10°, B −10°) |
 | **Corridor turn** | End of corridor 1: 90° onto corridor 2, latch new heading |
 | **Corridor stop** | End of corridor 2: stop, then leave Pathfind into Storage Turn |
 
@@ -32,8 +32,8 @@ Drive checks those triggers in that order (corridor length, then wall bumper, th
 
 - **Do:** `Kobuki_Drive(FSM_PATHFIND_DRIVE_SPEED)` (100 mm/s).
 - **Corridor length:** signed wheel travel from `corridor_start_distance` ≥ `FSM_PATHFIND_CORRIDOR_MM` (1200 mm). Latched at Orient → Drive and Corridor turn → Drive; not re-latched on Rotate → Drive. Reverse subtracts from the total.
-- **Storage-wall bumper:** Layout A left (`0x04`), Layout B right (`0x01`). Ledge-side bumper is ignored.
-- **Ledge cliff:** Layout A right (`0x01`), Layout B left (`0x04`). Storage-wall-side cliff is ignored.
+- **Storage-wall bumper:** Layout A right (`0x01`), Layout B left (`0x04`). Ledge-side bumper is ignored.
+- **Ledge cliff:** Layout A left (`0x04`), Layout B right (`0x01`). Storage-wall-side cliff is ignored.
 - **Ignored in Drive:** centre cliff, ledge-side bumper, storage-wall-side cliff, centre bumper.
 
 ## Reverse
@@ -42,14 +42,14 @@ Entered from Drive when the storage-wall bumper or ledge cliff fires.
 
 - **Entry:** distance setpoint `−FSM_PATHFIND_REVERSE_MM` (−50 mm).
 - **Do:** `Kobuki_Drive_Distance` until `distance_complete`.
-- **Then:** always enter **Rotate** (even if the heading delta is already ~0°).
+- **Then:** always enter **Rotate**.
 - **Sensors:** bumper and cliff are ignored here. Only B1 or wheeldrop → Fault.
 
 ## Rotate
 
 Entered from Reverse when the back-off finishes.
 
-- **Entry:** shortest signed angle from `kobuki.angle` to `fsm_data.heading` (corridor heading latched by Orient / Corridor turn), via `Angle_Delta_Deg` (+ = anticlockwise, wraps at ±180°).
+- **Entry:** fixed angle `FSM_PATHFIND_ROTATE_A_DEG` (+10) or `FSM_PATHFIND_ROTATE_B_DEG` (−10). Does not use `fsm_data.heading` or `Angle_Delta_Deg`.
 - **Do:** `Kobuki_Rotate_Angle` until `rotation_complete`.
 - **Then:** return to **Drive**. There is no matching +50 mm forward resume after Rotate.
 - **Sensors:** same as Reverse — bumper/cliff ignored; B1 or wheeldrop → Fault.
@@ -68,6 +68,7 @@ If Drive still sees the wall bumper or ledge cliff on the next tick after Rotate
 | `FSM_PATHFIND_DRIVE_SPEED` | 100 | Drive |
 | `FSM_PATHFIND_CORRIDOR_MM` | 1200 | Drive (end of corridor) |
 | `FSM_PATHFIND_REVERSE_MM` | 50 | Reverse |
+| `FSM_PATHFIND_ROTATE_A_DEG` / `_B_DEG` | +10 / −10 | Rotate |
 | `FSM_PATHFIND_CORNER_A_DEG` / `_B_DEG` | +90 / −90 | Corridor turn |
 
 ## Faults
