@@ -5,3 +5,13 @@ mx.scratch
 .vscode
 .settings
 sim/
+
+# Agent verification evidence (kept locally; do not commit)
+verify-artifacts/
+
+# Downloaded by verify-amu-fault-stop/helpers/run-check.sh
+.cursor/skills/verify-amu-fault-stop/helpers/tla2tools.jar
+.cursor/skills/verify-amu-fault-stop/formal/states/
+*.toolbox/
+# Agent verification evidence (kept locally; do not commit)
+verify-artifacts/

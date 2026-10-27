@@ -1,0 +1,169 @@
+#!/usr/bin/env bash
+# Drive the AMU verification surface: the PC Kobuki simulator that runs Src/ firmware.
+# On Linux/macOS this wraps the committed Windows sim with Wine; on native Windows it
+# runs sim\kobuki_sim.exe directly. Rebuild the exe with sim\build.bat after Src changes.
+set -euo pipefail
+
+ROOT="$(git rev-parse --show-toplevel 2>/dev/null || true)"
+if [[ -z "${ROOT}" ]]; then
+  ROOT="$(cd "$(dirname "$0")/../../../.." && pwd)"
+fi
+
+SIM_WIN="${ROOT}/sim/kobuki_sim.exe"
+EVIDENCE_ROOT="${AMU_VERIFY_EVIDENCE:-${ROOT}/verify-artifacts/amu}"
+RUN_ID="${AMU_VERIFY_RUN_ID:-$(date -u +%Y%m%dT%H%M%SZ)-$$}"
+
+die() { echo "control-amu: $*" >&2; exit 1; }
+
+have_wine() { command -v wine >/dev/null 2>&1; }
+
+is_windows() {
+  case "$(uname -s 2>/dev/null || echo unknown)" in
+    MINGW*|MSYS*|CYGWIN*|Windows_NT) return 0 ;;
+    *) return 1 ;;
+  esac
+}
+
+run_sim() {
+  [[ -f "${SIM_WIN}" ]] || die "missing ${SIM_WIN} (build with sim\\\\build.bat on Windows)"
+  if is_windows; then
+    "${SIM_WIN}" "$@"
+  else
+    have_wine || die "Wine required on $(uname -s) to run kobuki_sim.exe (apt install wine)"
+    WINEDEBUG="${WINEDEBUG:--all}" wine "${SIM_WIN}" "$@"
+  fi
+}
+
+cmd_doctor() {
+  local ok=1
+  echo "control-amu doctor"
+  echo "  root: ${ROOT}"
+  echo "  sim:  ${SIM_WIN}"
+  if [[ -f "${SIM_WIN}" ]]; then
+    echo "  sim:  present ($(wc -c <"${SIM_WIN}") bytes)"
+  else
+    echo "  sim:  MISSING"
+    ok=0
+  fi
+  if is_windows; then
+    echo "  host: Windows (native sim)"
+  elif have_wine; then
+    echo "  host: $(uname -s) + wine ($(wine --version 2>/dev/null | head -1))"
+  else
+    echo "  host: $(uname -s) WITHOUT wine"
+    ok=0
+  fi
+  if command -v arm-none-eabi-gcc >/dev/null 2>&1 && command -v cmake >/dev/null 2>&1; then
+    echo "  firmware toolchain: arm-none-eabi-gcc + cmake present"
+  else
+    echo "  firmware toolchain: incomplete (needed only for firmware rebuild checks)"
+  fi
+  if [[ "${ok}" -eq 1 ]]; then
+    echo "  verdict: READY"
+    return 0
+  fi
+  echo "  verdict: NOT READY"
+  return 1
+}
+
+cmd_launch() {
+  # Short-lived CLI: "launch" means ready to drive, with an isolated evidence dir.
+  cmd_doctor || die "doctor failed"
+  mkdir -p "${EVIDENCE_ROOT}/${RUN_ID}"
+  echo "control-amu launch"
+  echo "  run_id:   ${RUN_ID}"
+  echo "  evidence: ${EVIDENCE_ROOT}/${RUN_ID}"
+  echo "${RUN_ID}" >"${EVIDENCE_ROOT}/.current-run"
+  echo "${EVIDENCE_ROOT}/${RUN_ID}"
+}
+
+cmd_cleanup() {
+  # Never delete evidence. Only clear the current-run pointer and Wine temp if any.
+  if [[ -f "${EVIDENCE_ROOT}/.current-run" ]]; then
+    rm -f "${EVIDENCE_ROOT}/.current-run"
+    echo "control-amu cleanup: cleared current-run pointer; evidence kept under ${EVIDENCE_ROOT}"
+  else
+    echo "control-amu cleanup: nothing to clear; evidence kept under ${EVIDENCE_ROOT}"
+  fi
+}
+
+cmd_sim() {
+  local out_dir feature=""
+  out_dir="${EVIDENCE_ROOT}"
+  if [[ -f "${EVIDENCE_ROOT}/.current-run" ]]; then
+    local rid
+    rid="$(tr -d '[:space:]' <"${EVIDENCE_ROOT}/.current-run")"
+    out_dir="${EVIDENCE_ROOT}/${rid}"
+  fi
+  mkdir -p "${out_dir}"
+
+  local args=()
+  while [[ $# -gt 0 ]]; do
+    case "$1" in
+      --feature)
+        feature="${2:-}"
+        shift 2
+        ;;
+      --out)
+        out_dir="${2:-}"
+        shift 2
+        ;;
+      *)
+        args+=("$1")
+        shift
+        ;;
+    esac
+  done
+
+  if [[ -n "${feature}" ]]; then
+    out_dir="${out_dir}/${feature}"
+    mkdir -p "${out_dir}"
+  fi
+
+  local log="${out_dir}/sim.stdout.txt"
+  echo "control-amu sim -> ${out_dir}"
+  set +e
+  run_sim --out "${out_dir}" "${args[@]}" 2>&1 | tee "${log}"
+  local rc=${PIPESTATUS[0]}
+  set -e
+
+  # Wine may write with backslashes in the printed path; also copy any HTML next to the log.
+  if [[ -n "${feature}" ]]; then
+    printf '%s\n' "${feature}" >"${out_dir}/feature-id.txt"
+    printf '%s\n' "${args[*]}" >"${out_dir}/sim.args.txt"
+  fi
+  return "${rc}"
+}
+
+usage() {
+  cat <<'EOF'
+Usage: control-amu <command> [args]
+
+  doctor              Read-only readiness check (sim binary + host runner)
+  launch              Doctor + create isolated evidence dir; prints its path
+  cleanup             Drop current-run pointer; keeps evidence
+  sim [sim-args...]   Run kobuki_sim with --out aimed at the evidence dir
+                      Extra flags for this wrapper only:
+                        --feature <id>   nest evidence under <id>/
+                        --out <dir>      override evidence directory
+
+Environment:
+  AMU_VERIFY_EVIDENCE   Evidence root (default: <repo>/verify-artifacts/amu)
+  AMU_VERIFY_RUN_ID     Fixed run id (default: UTC timestamp + pid)
+EOF
+}
+
+main() {
+  local cmd="${1:-}"
+  shift || true
+  case "${cmd}" in
+    doctor) cmd_doctor "$@" ;;
+    launch) cmd_launch "$@" ;;
+    cleanup) cmd_cleanup "$@" ;;
+    sim) cmd_sim "$@" ;;
+    -h|--help|help|"") usage; [[ -n "${cmd}" ]] ;;
+    *) die "unknown command: ${cmd} (try --help)" ;;
+  esac
+}
+
+main "$@"
