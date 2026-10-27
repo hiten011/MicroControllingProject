@@ -39,7 +39,7 @@
 #define FSM_PATHFIND_DRIVE_SPEED 100
 #define FSM_PATHFIND_CORNER_A_DEG 90    // ACW onto the second corridor
 #define FSM_PATHFIND_CORNER_B_DEG (-90) // CW onto the second corridor
-#define FSM_PATHFIND_REALIGN_REVERSE_MM 50 // Back-off and matching forward resume
+#define FSM_PATHFIND_REVERSE_MM 50 // Fixed reverse distance after storage-wall bumper or ledge cliff
 
 // Storage. Tunable on hardware; values match docs/amu_fsm.drawio.
 #define FSM_STORAGE_TURN_A_DEG 135   // ACW to face the Entrance
@@ -82,9 +82,8 @@ typedef enum {
     FSM_ST_ALIGN,
     FSM_ST_ORIENT,
     FSM_ST_PATHFIND_DRIVE,
-    FSM_ST_PATHFIND_WALL_HIT,
-    FSM_ST_PATHFIND_LEDGE_HIT,
-    FSM_ST_PATHFIND_REALIGN,
+    FSM_ST_PATHFIND_REVERSE,
+    FSM_ST_PATHFIND_ROTATE,
     FSM_ST_PATHFIND_FRONT_CLIFF_TURN,
     FSM_ST_PATHFIND_FRONT_CLIFF_STOP,
     FSM_ST_STORAGE_TURN,
@@ -101,9 +100,8 @@ extern const FSM_State state_spin;
 extern const FSM_State state_align;
 extern const FSM_State state_orient;
 extern const FSM_State state_pathfind_drive;
-extern const FSM_State state_pathfind_wall_hit;
-extern const FSM_State state_pathfind_ledge_hit;
-extern const FSM_State state_pathfind_realign;
+extern const FSM_State state_pathfind_reverse;
+extern const FSM_State state_pathfind_rotate;
 extern const FSM_State state_pathfind_front_cliff_turn;
 extern const FSM_State state_pathfind_front_cliff_stop;
 extern const FSM_State state_storage_turn;
