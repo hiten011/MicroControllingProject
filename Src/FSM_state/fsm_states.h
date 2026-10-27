@@ -29,7 +29,7 @@
 #define FSM_LAYOUT_A_MAX_MM 650U
 
 // Align: anticlockwise from first-detection heading to centre heading. 0 until measured.
-#define FSM_ALIGNMENT_OFFSET_DEG 15
+#define FSM_ALIGNMENT_OFFSET_DEG 20
 
 // Orient: Layout A turns CW to the bottom corridor; Layout B turns ACW to the left corridor.
 #define FSM_ORIENT_A_DEG 90
