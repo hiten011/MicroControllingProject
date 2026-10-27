@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+"""Fail if Pathfind does not reverse after a storage-wall bumper hit."""
 
 from __future__ import annotations
 
