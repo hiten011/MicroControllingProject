@@ -59,12 +59,6 @@ static void change_to(State next)
     state = next;
 
     switch (next) {
-        case ST_SEARCH:
-            if (robot.object.detected) {
-                robot.layout = Layout_From_Range(robot.object.range_mm);
-            }
-            break;
-
         case ST_DETECT:
             Kobuki_Drive(STOP);
             Ultrasonic_Detect(&robot.object);
@@ -122,6 +116,7 @@ static void change_to(State next)
             Kobuki_Drive(STOP);
             break;
 
+        case ST_SEARCH:
         case ST_IDLE:
         case ST_PATHFIND_DRIVE:
             break;
@@ -131,6 +126,30 @@ static void change_to(State next)
 static void wait_next_kobuki_packet(void)
 {
     Kobuki_Read(&robot.kobuki);
+}
+
+// SEARCH_FAULT_LAYOUT stays because later states treat non-A as B.
+// A hit stores layout on the SEARCH tick that enters ALIGN. That packet's ALIGN entry arms +13 degrees.
+typedef enum {
+    SEARCH_KEEP_ROTATING,
+    SEARCH_ALIGN_A,
+    SEARCH_ALIGN_B,
+    SEARCH_FAULT_LAYOUT,
+} SearchDecision;
+
+static SearchDecision Search_Decide(const US_Typedef *object)
+{
+    if (object->detected == 0) {
+        return SEARCH_KEEP_ROTATING;
+    }
+    switch (Layout_From_Range(object->range_mm)) {
+        case LAYOUT_A:
+            return SEARCH_ALIGN_A;
+        case LAYOUT_B:
+            return SEARCH_ALIGN_B;
+        case LAYOUT_NONE:
+            return SEARCH_FAULT_LAYOUT;
+    }
 }
 
 int main(void)
@@ -160,11 +179,22 @@ int main(void)
                     change_to(ST_FAULT);
                     break;
                 }
-                if (robot.object.detected) {
-                    change_to(ST_ALIGN);
-                    break;
+                switch (Search_Decide(&robot.object)) {
+                    case SEARCH_KEEP_ROTATING:
+                        change_to(ST_DETECT);
+                        break;
+                    case SEARCH_FAULT_LAYOUT:
+                        change_to(ST_FAULT);
+                        break;
+                    case SEARCH_ALIGN_A:
+                        robot.layout = LAYOUT_A;
+                        change_to(ST_ALIGN);
+                        break;
+                    case SEARCH_ALIGN_B:
+                        robot.layout = LAYOUT_B;
+                        change_to(ST_ALIGN);
+                        break;
                 }
-                change_to(ST_DETECT);
                 break;
 
             case ST_DETECT:
@@ -172,11 +202,11 @@ int main(void)
                     change_to(ST_FAULT);
                     break;
                 }
-                if (robot.object.detected) {
-                    change_to(ST_SEARCH);
+                if (Search_Decide(&robot.object) == SEARCH_KEEP_ROTATING) {
+                    change_to(ST_SPIN);
                     break;
                 }
-                change_to(ST_SPIN);
+                change_to(ST_SEARCH);
                 break;
 
             case ST_SPIN:
