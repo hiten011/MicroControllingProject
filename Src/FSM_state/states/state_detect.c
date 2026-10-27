@@ -1,5 +1,4 @@
 #include "action_fault.h"
-#include "fsm_data.h"
 #include "fsm_states.h"
 
 // Hold still and take one Detect reading. This is in init() and not in a do / Action, because the

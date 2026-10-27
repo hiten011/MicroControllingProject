@@ -1,5 +1,3 @@
-#include "fsm_config.h"
-#include "fsm_data.h"
 #include "fsm_states.h"
 
 // Forget the last Search, because SEARCH cannot reset itself: DETECT and SPIN re-enter it.

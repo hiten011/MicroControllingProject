@@ -1,8 +1,6 @@
 #include "action_fault.h"
-#include "fsm_config.h"
-#include "fsm_data.h"
-#include "fsm_helpers.h"
 #include "fsm_states.h"
+#include "helper.h"
 
 // One Step, anticlockwise.
 static void spin_init(void)
@@ -13,7 +11,7 @@ static void spin_init(void)
 // Add the angle of this Step to the Sweep. A full 360 degrees is one finished Sweep.
 static void spin_exit(void)
 {
-    fsm_data.swept_deg += FSM_Angle_Delta_Deg(fsm_data.last_angle, fsm_data.kobuki.angle);
+    fsm_data.swept_deg += Angle_Delta_Deg(fsm_data.last_angle, fsm_data.kobuki.angle);
     fsm_data.last_angle = fsm_data.kobuki.angle;
 
     if (fsm_data.swept_deg >= FSM_SWEEP_DEG) {
