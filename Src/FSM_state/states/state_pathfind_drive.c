@@ -1,11 +1,19 @@
 #include "action_fault.h"
 #include "fsm_states.h"
 
+static int16_t corridor_length_mm(void)
+{
+    if (fsm_data.layout == FSM_LAYOUT_A) {
+        return (fsm_data.corridor == 1) ? FSM_PATHFIND_CORRIDOR_1_A_MM : FSM_PATHFIND_CORRIDOR_2_A_MM;
+    }
+    return (fsm_data.corridor == 1) ? FSM_PATHFIND_CORRIDOR_1_B_MM : FSM_PATHFIND_CORRIDOR_2_B_MM;
+}
+
 // Corridor length reached: net forward mm from corridor start (Reverse subtracts).
 static bool corridor_length_reached(void)
 {
     return Kobuki_Distance_Delta_Mm(fsm_data.corridor_start_distance, fsm_data.kobuki.distance) >=
-           FSM_PATHFIND_CORRIDOR_MM;
+           corridor_length_mm();
 }
 
 static bool corridor_1_done(void)
