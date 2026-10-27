@@ -10,7 +10,17 @@ register accesses. Linux, macOS, and `sim\build.bat shim` replace `uart.c` and
 
 ## Build
 
-On Linux and macOS, from the project folder, with `gcc` on `PATH`:
+From `sim/`, `make` detects the OS and calls `build.sh` (Linux/macOS) or
+`build.bat` (Windows). `make A` and `make B` build, then run that layout.
+
+```
+make -C sim          # or: cd sim && make
+make -C sim A        # Layout A, heading 90, seed 1, verbose
+make -C sim B        # Layout B, heading 0, seed 1, verbose
+make -C sim check    # pathfind Reverse recovery check
+```
+
+On Linux and macOS, with `gcc` on `PATH`, you can still call the script directly:
 
 ```
 ./sim/build.sh
