@@ -31,13 +31,16 @@
 // Align: anticlockwise from first-detection heading to centre heading. 0 until measured.
 #define FSM_ALIGNMENT_OFFSET_DEG 13
 
-// Orient: Layout A turns CW to the bottom corridor; Layout B turns ACW to the left corridor.
-#define FSM_ORIENT_A_DEG 90
-#define FSM_ORIENT_B_DEG (-90)
+#define FSM_ORIENT_A_DEG (-90)
+#define FSM_ORIENT_B_DEG 90
 
 // Pathfind. Tunable on hardware; values match docs/amu_fsm.drawio.
 #define FSM_PATHFIND_DRIVE_SPEED 100
-#define FSM_PATHFIND_CORRIDOR_MM 1200 // Net forward travel that ends each corridor
+// Figure 2 centreline legs: A bottom 1200 then right 1400; B left 1400 then top 1200.
+#define FSM_PATHFIND_CORRIDOR_1_A_MM 1200
+#define FSM_PATHFIND_CORRIDOR_2_A_MM 1400
+#define FSM_PATHFIND_CORRIDOR_1_B_MM 1400
+#define FSM_PATHFIND_CORRIDOR_2_B_MM 1200
 #define FSM_PATHFIND_CORNER_A_DEG 90    // ACW onto the second corridor
 #define FSM_PATHFIND_CORNER_B_DEG (-90) // CW onto the second corridor
 #define FSM_PATHFIND_REVERSE_MM 50 // Fixed reverse distance after storage-wall bumper or ledge cliff

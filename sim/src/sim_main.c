@@ -11,14 +11,13 @@
  * firmware touches USART3 / ADC1; each time it waits for the next Kobuki
  * packet, sim_feed_needed() advances the world by 20 ms.
  */
-#define WIN32_LEAN_AND_MEAN
-#include <windows.h>
 #include <math.h>
 #include <stdarg.h>
 #include <stdlib.h>
 #include <string.h>
 #include <time.h>
 #include "sim.h"
+#include "sim_host.h"
 
 int firmware_main(void);
 
@@ -92,7 +91,7 @@ static uint8_t  prev_bump, prev_cliff;
 static uint16_t prev_gpo = 0xFFFF;
 static int      prev_section;
 
-static volatile LONG progress;
+static atomic_int progress;
 
 static const char *led_name(int v) { static const char *n[] = { "OFF", "RED", "GREEN", "YELLOW" }; return n[v & 3]; }
 
@@ -348,17 +347,15 @@ static void write_results(FILE *f, int with_trace)
     fprintf(f, "]}");
 }
 
-static void path_join(char *out, size_t n, const char *a, const char *b) { snprintf(out, n, "%s\\%s", a, b); }
-
 static void write_html(void)
 {
-    char tpl_path[600], out_path[600], name[200];
+    char tpl_path[600], out_path[600], name[200], shown[600];
     FILE *t, *o;
     long size;
     char *tpl, *mark;
     const char *needle = "/*__SIM_DATA__*/null";
 
-    path_join(tpl_path, sizeof tpl_path, cfg.exe_dir, "viewer\\viewer.html");
+    path_join(tpl_path, sizeof tpl_path, cfg.exe_dir, "viewer/viewer.html");
     t = fopen(tpl_path, "rb");
     if (!t) { printf("  (no replay written: %s not found)\n", tpl_path); return; }
     fseek(t, 0, SEEK_END); size = ftell(t); fseek(t, 0, SEEK_SET);
@@ -368,7 +365,11 @@ static void write_html(void)
     mark = strstr(tpl, needle);
     if (!mark) { printf("  (viewer template has no data marker)\n"); free(tpl); return; }
 
-    CreateDirectoryA(cfg.out_dir, NULL);
+    if (mkdir_p(cfg.out_dir) != 0) {
+        printf("  (could not create %s)\n", cfg.out_dir);
+        free(tpl);
+        return;
+    }
     snprintf(name, sizeof name, "%s.html", cfg.tag);
     path_join(out_path, sizeof out_path, cfg.out_dir, name);
     o = fopen(out_path, "wb");
@@ -378,7 +379,10 @@ static void write_html(void)
     fputs(mark + strlen(needle), o);
     fclose(o);
     free(tpl);
-    if (!cfg.quiet) printf("  Replay: %s\n", out_path);
+    if (!cfg.quiet) {
+        path_native(shown, sizeof shown, out_path);
+        printf("  Replay: %s\n", shown);
+    }
 }
 
 static void finish(int code)
@@ -525,7 +529,7 @@ static void track_events(void)
 
 void sim_feed_needed(void)
 {
-    InterlockedIncrement(&progress);
+    host_inc(&progress);
 
     apply_inputs();
     world_tick();
@@ -564,14 +568,14 @@ void sim_feed_needed(void)
 /* Watchdog: firmware stopped talking to the Kobuki                     */
 /* -------------------------------------------------------------------- */
 
-static DWORD WINAPI watchdog(LPVOID arg)
+static void *watchdog(void *arg)
 {
-    LONG last = -1;
+    int last = -1;
     int idle = 0;
     (void)arg;
     for (;;) {
-        Sleep(1000);
-        LONG p = progress;
+        sleep_ms(1000);
+        int p = host_load(&progress);
         if (p != last) { last = p; idle = 0; continue; }
         if (++idle >= 5) {
             mmio_unprotect_all();
@@ -580,7 +584,7 @@ static DWORD WINAPI watchdog(LPVOID arg)
                 : "firmware stopped reading the Kobuki for 5 s of real time - stuck in a loop?");
         }
     }
-    return 0;
+    return NULL;
 }
 
 /* -------------------------------------------------------------------- */
@@ -607,20 +611,40 @@ static char *read_file(const char *path)
 
 typedef struct { char args[400]; char tag[64]; char label[48]; } Job;
 
+static int split_words(char *s, char **out, int cap)
+{
+    int n = 0;
+    while (*s && n < cap) {
+        while (*s == ' ') s++;
+        if (!*s) break;
+        out[n++] = s;
+        while (*s && *s != ' ') s++;
+        if (*s) *s++ = 0;
+    }
+    return n;
+}
+
 static int run_suite(int argc, char **argv, int jobs)
 {
     static Job job[64];
     int nj = 0;
-    char exe[600], common[1200] = "";
+    char exepath[600];
+    char *pass[64];
+    int np = 0;
     const int heads[8] = { 0, 45, 90, 135, 180, 225, 270, 315 };
+    HostProc running[64];
+    int nr = 0, next = 0, done = 0;
 
-    GetModuleFileNameA(NULL, exe, sizeof exe);
-    /* pass through tuning options */
+    if (jobs < 1) jobs = 1;
+    if (exe_path(exepath, sizeof exepath) != 0) {
+        printf("could not find this executable\n");
+        return 1;
+    }
     for (int i = 1; i < argc; i++) {
         if (!strcmp(argv[i], "--suite")) continue;
         if (!strcmp(argv[i], "--jobs") || !strcmp(argv[i], "--seed") ||
-            !strcmp(argv[i], "--out")) { i++; continue; }      /* set per run */
-        strcat(common, " \""); strcat(common, argv[i]); strcat(common, "\"");
+            !strcmp(argv[i], "--out")) { i++; continue; }
+        if (np < 64) pass[np++] = argv[i];
     }
 
     for (int L = 0; L < 2; L++)
@@ -646,38 +670,61 @@ static int run_suite(int argc, char **argv, int jobs)
         nj++;
     }
 
-    CreateDirectoryA(cfg.out_dir, NULL);
+    if (mkdir_p(cfg.out_dir) != 0) {
+        printf("could not create %s\n", cfg.out_dir);
+        return 1;
+    }
     printf("Running %d simulations (%d at a time)...\n", nj, jobs);
 
-    HANDLE running[64];
-    int    which[64], nr = 0, next = 0, done = 0;
+    memset(running, 0, sizeof running);
     while (done < nj) {
         while (nr < jobs && next < nj) {
-            char cmd[2400];
-            STARTUPINFOA si = { sizeof si };
-            PROCESS_INFORMATION pi;
-            snprintf(cmd, sizeof cmd, "\"%s\" %s --quiet --tag %s --json \"%s\\%s.json\" --out \"%s\"%s",
-                     exe, job[next].args, job[next].tag, cfg.out_dir, job[next].tag, cfg.out_dir, common);
-            if (!CreateProcessA(NULL, cmd, NULL, NULL, FALSE, CREATE_NO_WINDOW, NULL, NULL, &si, &pi)) {
+            char args_copy[400];
+            char *words[24];
+            char json_name[80], json_path[600];
+            char *av[80];
+            int ac = 0;
+            int nw = 0;
+
+            snprintf(args_copy, sizeof args_copy, "%s", job[next].args);
+            nw = split_words(args_copy, words, 24);
+            snprintf(json_name, sizeof json_name, "%s.json", job[next].tag);
+            path_join(json_path, sizeof json_path, cfg.out_dir, json_name);
+            av[ac++] = exepath;
+            for (int k = 0; k < nw && ac < 70; k++) av[ac++] = words[k];
+            av[ac++] = "--quiet";
+            av[ac++] = "--tag";
+            av[ac++] = job[next].tag;
+            av[ac++] = "--json";
+            av[ac++] = json_path;
+            av[ac++] = "--out";
+            av[ac++] = cfg.out_dir;
+            for (int k = 0; k < np && ac < 79; k++) av[ac++] = pass[k];
+            av[ac] = NULL;
+            if (run_process(&running[nr], av) != 0) {
                 printf("  could not start %s\n", job[next].tag);
-                next++; done++;
+                next++;
+                done++;
                 continue;
             }
-            CloseHandle(pi.hThread);
-            running[nr] = pi.hProcess; which[nr] = next; nr++; next++;
+            nr++;
+            next++;
         }
-        DWORD w = WaitForMultipleObjects((DWORD)nr, running, FALSE, INFINITE) - WAIT_OBJECT_0;
-        CloseHandle(running[w]);
-        running[w] = running[nr - 1]; which[w] = which[nr - 1]; nr--;
-        done++;
-        printf("\r  %d / %d done", done, nj);
-        fflush(stdout);
+        {
+            int w = process_wait_any(running, nr);
+            if (w < 0) break;
+            running[w] = running[nr - 1];
+            nr--;
+            done++;
+            printf("\r  %d / %d done", done, nj);
+            fflush(stdout);
+        }
     }
     printf("\n\n");
 
     /* table */
-    char idx_path[600];
-    snprintf(idx_path, sizeof idx_path, "%s\\index.html", cfg.out_dir);
+    char idx_path[600], shown[600];
+    path_join(idx_path, sizeof idx_path, cfg.out_dir, "index.html");
     FILE *ix = fopen(idx_path, "wb");
     if (ix) fprintf(ix, "<!doctype html><meta charset=utf-8><meta name=viewport content='width=device-width,initial-scale=1'>"
                         "<title>Kobuki Sim Suite</title><style>:root{color-scheme:light dark;--bg:#f7f7f5;--fg:#1d1d1b;--mut:#6b6b66;--line:#ddd;--ok:#1a7f37;--bad:#c62828}"
@@ -695,8 +742,9 @@ static int run_suite(int argc, char **argv, int jobs)
            "run", "outcome", "path", "side", "sec3", "storage", "bollard", "gap", "align", "maxv", "checks");
     int total_pass = 0, total = 0, runs_ok = 0;
     for (int i = 0; i < nj; i++) {
-        char p[600];
-        snprintf(p, sizeof p, "%s\\%s.json", cfg.out_dir, job[i].tag);
+        char name[80], p[600];
+        snprintf(name, sizeof name, "%s.json", job[i].tag);
+        path_join(p, sizeof p, cfg.out_dir, name);
         char *s = read_file(p);
         if (!s) { printf("  %-24s (no result - crashed?)\n", job[i].label); continue; }
         char outcome[64] = "?";
@@ -729,7 +777,8 @@ static int run_suite(int argc, char **argv, int jobs)
         free(s);
     }
     printf("\n  %d / %d runs passed every check  (%d / %d checks)\n", runs_ok, nj, total_pass, total);
-    printf("  Summary with replay links: %s\n", idx_path);
+    path_native(shown, sizeof shown, idx_path);
+    printf("  Summary with replay links: %s\n", shown);
     if (ix) { fprintf(ix, "</table></div><p style='margin-top:16px'>%d / %d runs passed every check (%d / %d checks).</p></main>", runs_ok, nj, total_pass, total); fclose(ix); }
     return runs_ok == nj ? 0 : 1;
 }
@@ -817,13 +866,8 @@ int main(int argc, char **argv)
     cfg.html      = 1;
     strcpy(cfg.out_dir, "sim_out");
 
-    {
-        char exe[600], *slash;
-        GetModuleFileNameA(NULL, exe, sizeof exe);
-        slash = strrchr(exe, '\\');
-        if (slash) *slash = 0;
-        snprintf(cfg.exe_dir, sizeof cfg.exe_dir, "%s", exe);
-    }
+    if (exe_dir(cfg.exe_dir, sizeof cfg.exe_dir) != 0)
+        cfg.exe_dir[0] = 0;
 
     for (int i = 1; i < argc; i++) {
         const char *a = argv[i];
@@ -865,9 +909,8 @@ int main(int argc, char **argv)
     sim_seed(cfg.seed);
 
     if (suite) {
-        SYSTEM_INFO si;
-        GetSystemInfo(&si);
-        if (jobs <= 0) jobs = (int)si.dwNumberOfProcessors;
+        if (jobs <= 0) jobs = cpu_count();
+        if (jobs < 1) jobs = 1;
         if (jobs > 32) jobs = 32;
         return run_suite(argc, argv, jobs);
     }
@@ -901,7 +944,10 @@ int main(int argc, char **argv)
                cfg.seed, cfg.sensor_offset, cfg.beam_half_deg);
 
     start_trial(0, 1);
-    CreateThread(NULL, 0, watchdog, NULL, 0, NULL);
+    if (thread_start(watchdog, NULL) != 0) {
+        printf("could not start watchdog\n");
+        return 2;
+    }
 
     firmware_main();
     sim_fatal("firmware main() returned");
