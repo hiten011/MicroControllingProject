@@ -1,11 +1,11 @@
 #include "action_fault.h"
 #include "fsm_states.h"
-#include "helper.h"
 
-// Restore corridor heading after Reverse, then return to Drive.
+// Fixed nudge after Reverse, then return to Drive. Layout A +10, Layout B -10.
 static void rotate_init(void)
 {
-    int16_t deg = Angle_Delta_Deg(fsm_data.kobuki.angle, fsm_data.heading);
+    int16_t deg = (fsm_data.layout == FSM_LAYOUT_A) ? FSM_PATHFIND_ROTATE_A_DEG
+                                                    : FSM_PATHFIND_ROTATE_B_DEG;
     Kobuki_Rotate_Angle_Setpoint(fsm_data.kobuki.angle, deg);
 }
 
