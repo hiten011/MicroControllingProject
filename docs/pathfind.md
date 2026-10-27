@@ -41,7 +41,7 @@ flowchart TB
 | --- | --- |
 | **Drive** | Drive forward along the corridor heading |
 | **Reverse** | Back a fixed distance after a wall bumper or ledge cliff |
-| **Rotate** | Fixed layout nudge after Reverse (A +10°, B −10°) |
+| **Rotate** | Turn `pathfind_recover_deg` after Reverse, away from the side that was hit |
 | **Corridor turn** | End of corridor 1: 90° onto corridor 2, latch new heading |
 | **Corridor stop** | End of corridor 2: stop, then leave Pathfind into Storage Turn |
 

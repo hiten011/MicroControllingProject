@@ -49,7 +49,7 @@ typedef struct {
     int16_t heading;
     uint8_t corridor;
     uint16_t corridor_start_distance;
-    int16_t pathfind_recover_deg; // Set at Reverse entry; Rotate uses this nudge
+    int16_t pathfind_recover_deg;
 } RobotData;
 
 extern RobotData robot;
