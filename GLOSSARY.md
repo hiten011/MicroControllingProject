@@ -100,15 +100,15 @@ The phase in which the AMU drives the first corridor and then the second, keepin
 _Avoid_: navigate, route-follow, PATHFIND 1 / PATHFIND 2 (it is one phase run twice)
 
 **Drive**:
-The State in which the AMU drives forward along the current corridor until a front cliff, the storage wall or the ledge intervenes.
+The State in which the AMU drives forward along the current corridor until a front cliff, the storage wall or the ledge intervenes. A storage-wall bumper or ledge cliff sends it into Reverse; a front cliff ends the corridor.
 _Avoid_: PATHFIND_DRIVE (code id), cruise
 
 **Reverse**:
-The State in which the AMU backs a fixed distance clear of the storage wall or the ledge after that side's bumper or cliff fires during Drive.
+The State in which the AMU backs a fixed distance clear of the storage wall or the ledge after that side's bumper or cliff fires during Drive, then always enters Rotate.
 _Avoid_: Realign, back-off, PATHFIND_REVERSE (code id)
 
 **Rotate**:
-The State in which the AMU turns the shortest way back to the corridor heading after Reverse, then returns to Drive.
+The State in which the AMU turns the shortest way back to the corridor heading after Reverse, then returns to Drive with no forward resume.
 _Avoid_: Realign, Spin (Search), Turn (Storage), PATHFIND_ROTATE (code id)
 
 **Front-cliff turn**:
