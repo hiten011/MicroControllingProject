@@ -150,7 +150,7 @@ The State the AMU stops in when it must not go on: B1 pressed, a wheel dropped, 
 _Avoid_: Error, Stop, E-stop
 
 **State**:
-One box of the FSM diagram, named in capitals (SEARCH, DETECT, SPIN). It holds an ordered list of Actions, and one phase such as Search can span several States.
+One box of the FSM diagram, named in capitals (SEARCH, DETECT, SPIN). In the firmware it is one arm of the switch in Src/main.c. One phase such as Search can span several States.
 _Avoid_: Mode, Event
 
 **Action**:
