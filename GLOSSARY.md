@@ -53,7 +53,7 @@ _Avoid_: Hit
 
 **Spin**:
 Turning the AMU on the spot by one Step between two Detect readings.
-_Avoid_: Move (already means driving a distance), Turn (already used by the storage and pathfind turns)
+_Avoid_: Move (already means driving a distance), Turn (Storage), Rotate (Pathfind)
 
 **Step**:
 The fixed angle the AMU turns in one Spin.
@@ -96,24 +96,20 @@ The direction the AMU holds while driving a corridor. It is set afresh at the st
 _Avoid_: bearing, heading (alone, which also names the Centre heading)
 
 **Pathfind**:
-The phase in which the AMU drives the first corridor and then the second, keeping clear of the storage wall and the ledge. It spans Drive, Wall hit, Ledge hit, Realign, Front-cliff turn and Front-cliff stop.
+The phase in which the AMU drives the first corridor and then the second, keeping clear of the storage wall and the ledge. It spans Drive, Reverse, Rotate, Front-cliff turn and Front-cliff stop.
 _Avoid_: navigate, route-follow, PATHFIND 1 / PATHFIND 2 (it is one phase run twice)
 
 **Drive**:
 The State in which the AMU drives forward along the current corridor until a front cliff, the storage wall or the ledge intervenes.
 _Avoid_: PATHFIND_DRIVE (code id), cruise
 
-**Wall hit**:
-The State in which the AMU turns a fixed angle away from the storage wall after that side's bumper fires.
-_Avoid_: wall correct, bumper turn
+**Reverse**:
+The State in which the AMU backs a fixed distance clear of the storage wall or the ledge after that side's bumper or cliff fires during Drive.
+_Avoid_: Realign, back-off, PATHFIND_REVERSE (code id)
 
-**Ledge hit**:
-The State in which the AMU turns a fixed angle away from the ledge after that side's cliff fires.
-_Avoid_: ledge correct, cliff turn
-
-**Realign**:
-The State in which the AMU reverses a fixed distance, turns the shortest way back to the corridor heading, then drives that same distance forward again after a Wall hit or Ledge hit.
-_Avoid_: re-centre, recover heading
+**Rotate**:
+The State in which the AMU turns the shortest way back to the corridor heading after Reverse, then returns to Drive.
+_Avoid_: Realign, Spin (Search), Turn (Storage), PATHFIND_ROTATE (code id)
 
 **Front-cliff turn**:
 The State at the end of the first corridor: the AMU turns 90° onto the second corridor and latches a new corridor heading.
@@ -129,7 +125,7 @@ _Avoid_: STORAGE when the storage unit itself is meant
 
 **Turn** (Storage):
 The State in which the AMU turns on the spot from the second-corridor heading to face the Entrance.
-_Avoid_: face-entrance, storage rotate, STORAGE_TURN (code id)
+_Avoid_: face-entrance, Rotate (Pathfind), STORAGE_TURN (code id)
 
 **Drive-in**:
 The State in which the AMU drives a fixed distance through the Entrance into the storage unit.
