@@ -65,6 +65,10 @@ _Avoid_: Lap, rotation
 
 ### Aligning
 
+**Align**:
+The State in which the AMU turns from the first-detection heading to the centre heading.
+_Avoid_: centre-up, correct heading
+
 **Centre heading**:
 The heading at which the AMU faces the middle of the blocking bollard (A1 in Layout A, B1 in Layout B).
 _Avoid_: target heading, centreline, theta target
@@ -76,6 +80,10 @@ _Avoid_: stop heading, entry edge
 **Alignment offset**:
 The fixed angle, anticlockwise, from the first-detection heading to the centre heading.
 _Avoid_: correction angle
+
+**Orient**:
+The State in which the AMU turns from the centre heading to face the first corridor.
+_Avoid_: turn-to-corridor, face-corridor
 
 ### Driving to the storage unit
 

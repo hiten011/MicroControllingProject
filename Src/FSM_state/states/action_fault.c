@@ -25,3 +25,8 @@ const FSM_Action action_fault_ignore_cliff = {
     .condition = fault_ignore_cliff,
     .next_state = FSM_ST_FAULT,
 };
+
+const FSM_Action action_fault_b1_wheeldrop = {
+    .condition = stop_button_or_wheeldrop,
+    .next_state = FSM_ST_FAULT,
+};
