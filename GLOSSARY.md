@@ -26,7 +26,7 @@ The enclosed bay the parcel is delivered into, reached through a diagonal entran
 _Avoid_: the unit, freezer, storage (when the unit itself is meant)
 
 **Storage wall**:
-The outer wall of the storage unit that runs alongside the corridors. In Layout A it is on the AMU's right and the ledge on its left; Layout B is the mirror image.
+The outer wall of the storage unit that runs alongside the corridors. With Orient A = −90° / B = +90°, Layout A has it on the AMU's left and the ledge on its right; Layout B is the mirror image.
 _Avoid_: unit wall, side wall
 
 **Entrance**:
@@ -112,7 +112,7 @@ The State in which the AMU backs a fixed distance clear of the storage wall or t
 _Avoid_: Realign, back-off, PATHFIND_REVERSE (code id)
 
 **Rotate**:
-The State in which the AMU turns a fixed angle after Reverse (Layout A anticlockwise, Layout B clockwise), then returns to Drive with no forward resume. It does not restore the corridor heading.
+The State in which the AMU turns the nudge latched at Reverse entry (`pathfind_recover_deg`), away from the storage wall or the ledge that was hit, then returns to Drive with no forward resume. It does not restore the corridor heading.
 _Avoid_: Realign, Spin (Search), Turn (Storage), PATHFIND_ROTATE (code id)
 
 **Corridor turn**:
