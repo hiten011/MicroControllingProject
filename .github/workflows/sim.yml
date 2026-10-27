@@ -1,0 +1,22 @@
+name: Simulator
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  smoke:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install gcc
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends gcc
+
+      - name: Build
+        run: chmod +x sim/build.sh sim/ci_smoke.sh && ./sim/build.sh
+
+      - name: Smoke
+        run: ./sim/ci_smoke.sh
