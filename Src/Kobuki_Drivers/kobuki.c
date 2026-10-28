@@ -99,7 +99,7 @@ void Kobuki_Read(Kobuki_Typedef *kobuki)
     int16_t angle_MSB;
 
     // Init buffer & checksum
-    uint8_t kobuki_rx_buffer[SIZE_FEEDBACK];
+    uint8_t kobuki_rx_buffer[SIZE_FEEDBACK] = {0};
     uint8_t checksum_result;
 
     // Read Kobuki Tx data stream
@@ -117,6 +117,17 @@ void Kobuki_Read(Kobuki_Typedef *kobuki)
         kobuki->bumper = kobuki_rx_buffer[BUMPER];
         kobuki->wheeldrop = kobuki_rx_buffer[WHEEL_DROP];
         kobuki->cliff = kobuki_rx_buffer[CLIFF];
+        // The Kobuki's own flag has a fixed threshold, so add our own check on the raw readings.
+        // Bits: 0x01 right, 0x02 centre, 0x04 left.
+        if (kobuki_rx_buffer[CLIFF_ID] == 0x05U) {
+            for (uint8_t s = 0U; s < 3U; s++) {
+                kobuki->cliff_raw[s] = (uint16_t)kobuki_rx_buffer[CLIFF_RAW + (2U * s)] |
+                                       (uint16_t)((uint16_t)kobuki_rx_buffer[CLIFF_RAW + (2U * s) + 1U] << 8);
+                if (kobuki->cliff_raw[s] < CLIFF_RAW_LIMIT) {
+                    kobuki->cliff |= (uint8_t)(1U << s);
+                }
+            }
+        }
         kobuki->button = kobuki_rx_buffer[BUTTON];
         kobuki->distance = distance_LSB | distance_MSB;
         kobuki->angle = angle_LSB | angle_MSB;
