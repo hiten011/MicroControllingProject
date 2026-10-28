@@ -11,16 +11,17 @@ Firmware for the Autonomous Mobile Unit (AMU): a Kobuki base driven by a NUCLEO-
 One control step per received Kobuki packet (`Kobuki_Read()`, then a `switch` on the current state in `Src/main.c`). The AMU walks this path:
 
 ```
-IDLE ──B0──▶ CLEAR ─▶ SEARCH ─▶ TRACK ─▶ EDGE SCAN ─▶ DETECT ──▶ ALIGN ──▶ ORIENT ──▶ PATHFIND ──▶ STORAGE ──▶ IDLE
-                                                       (Drive, Reverse, Rotate,     (Turn, Drive-in,
-                                                        Corridor turn / stop)        Deposit)
+IDLE ──B0──▶ SEARCH ─▶ IDENTIFY ─▶ ORIENT ──▶ PATHFIND ──▶ STORAGE ──▶ IDLE
+
+PATHFIND = Drive, Reverse, Rotate, Corridor turn / stop
+STORAGE  = Turn, Drive-in, Deposit
 
 Any State except IDLE ──B1 / wheeldrop──▶ STOP / FAULT ──▶ IDLE
 ```
 
 ![AMU FSM](docs/amu_fsm_preview.png)
 
-Pathfind recovery is **Drive → Reverse (−50 mm) → Rotate (A +10° / B −10°) → Drive**. There is no Realign, Wall hit, or Ledge hit state.
+Pathfind recovery is **Drive → Reverse (−50 mm) → Rotate (wall hit: A −5° / B +5°, ledge cliff: the opposite) → Drive**. There is no Realign, Wall hit, or Ledge hit state.
 
 ## Docs
 
@@ -37,7 +38,7 @@ Pathfind recovery is **Drive → Reverse (−50 mm) → Rotate (A +10° / B −1
 | Path | What is in it |
 | --- | --- |
 | `Src/main.c` | Init, the Read loop, and the state `switch` |
-| `Src/Helper/` | Shared `robot` data, tunables, `Layout_From_Range()` |
+| `Src/Helper/` | Shared `robot` data, tunables, fault checks, scan and Pathfind helpers |
 | `Src/Kobuki_Drivers/` | Kobuki packet read / write, distance and angle setpoints |
 | `Src/Ultrasonic/`, `Src/ADC/`, `Src/G474RE_Drivers/` | Ultrasonic reading, ADC and UART drivers |
 
