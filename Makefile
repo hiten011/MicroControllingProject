@@ -36,6 +36,7 @@ ensure-programmer:
 	}
 
 # ST-LINK needs write access to the USB device node (often root-only until udev is set).
+# Keep bus/dev as zero-padded strings — do not use printf %d (020 is octal → 016).
 fix-stlink-usb:
 	@usb=$$(lsusb -d 0483: 2>/dev/null | grep -Ei 'ST-?LINK|STLINK' | head -1 | \
 		sed -n 's/.*Bus \([0-9]*\) Device \([0-9]*\):.*/\1 \2/p'); \
@@ -43,7 +44,7 @@ fix-stlink-usb:
 		echo "No ST-LINK on USB — plug in the NUCLEO."; \
 		exit 1; \
 	fi; \
-	set -- $$usb; bus=$$1; dev=$$2; node=/dev/bus/usb/$$(printf '%03d' $$bus)/$$(printf '%03d' $$dev); \
+	set -- $$usb; bus=$$1; dev=$$2; node=/dev/bus/usb/$$bus/$$dev; \
 	if [ ! -w "$$node" ]; then \
 		echo "Fixing write access on $$node …"; \
 		if command -v docker >/dev/null 2>&1; then \
