@@ -26,7 +26,7 @@
 #define EDGE_BAND_MM         60U
 
 // The closest reading on a bollard is under this for Layout B (the nearer bollard), otherwise Layout A.
-#define LAYOUT_B_MAX_MM 500U
+#define LAYOUT_B_MAX_MM 575U
 
 // Orient: Layout A turns CW to the bottom corridor; Layout B turns ACW to the left corridor.
 #define ORIENT_A_DEG (-90)
@@ -34,16 +34,16 @@
 
 #define PATHFIND_DRIVE_SPEED 100
 #define PATHFIND_CORNER_A_DEG    90
-#define PATHFIND_CORNER_B_DEG    (-90)
+#define PATHFIND_CORNER_B_DEG    (-100)
 #define PATHFIND_REVERSE_MM      50
-#define PATHFIND_ROTATE_A_DEG    (-10)
-#define PATHFIND_ROTATE_B_DEG    10
+#define PATHFIND_ROTATE_A_DEG    (-5)
+#define PATHFIND_ROTATE_B_DEG    5
 
 // Figure 2 centreline legs. A is bottom 1200 then right 1400. B is left 1400 then top 1200.
-#define PATHFIND_CORRIDOR_1_A_MM 1200
-#define PATHFIND_CORRIDOR_2_A_MM 1400
-#define PATHFIND_CORRIDOR_1_B_MM 1400
-#define PATHFIND_CORRIDOR_2_B_MM 1200
+#define PATHFIND_CORRIDOR_1_A_MM 950
+#define PATHFIND_CORRIDOR_2_A_MM 1550
+#define PATHFIND_CORRIDOR_1_B_MM 1550
+#define PATHFIND_CORRIDOR_2_B_MM 950
 
 #define STORAGE_TURN_A_DEG  135
 #define STORAGE_TURN_B_DEG  (-135)
