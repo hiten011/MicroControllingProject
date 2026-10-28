@@ -26,7 +26,7 @@
 #define EDGE_BAND_MM         60U
 
 // The closest reading on a bollard is under this for Layout B (the nearer bollard), otherwise Layout A.
-#define LAYOUT_B_MAX_MM 575U
+#define LAYOUT_B_MAX_MM 500U
 
 // Orient: Layout A turns CW to the bottom corridor; Layout B turns ACW to the left corridor.
 #define ORIENT_A_DEG (-90)
@@ -86,6 +86,9 @@ int16_t Corridor_Length_Mm(void);
 
 // A hit also latches pathfind_recover_deg. A miss leaves that field alone.
 bool Corridor_Wall_Hit(uint8_t bumper);
+
+// Ledge-side cliff. Latches the opposite nudge from a wall hit.
+bool Corridor_Ledge_Hit(const Kobuki_Typedef *kobuki);
 
 // Add the turn since the last call to scan_deg. Gyro ticks are 0.01 deg and wrap at +-18000.
 void Scan_Update_Turn(int16_t angle_tick);
