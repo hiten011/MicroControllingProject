@@ -20,8 +20,8 @@
 #define ALIGNMENT_OFFSET_DEG 13
 
 // Orient: Layout A turns CW to the bottom corridor; Layout B turns ACW to the left corridor.
-#define ORIENT_A_DEG (-90)
-#define ORIENT_B_DEG 90
+#define ORIENT_A_DEG (90)
+#define ORIENT_B_DEG (-90)
 
 #define PATHFIND_DRIVE_SPEED 100
 // Figure 2 centreline legs: A bottom 1200 then right 1400; B left 1400 then top 1200.
