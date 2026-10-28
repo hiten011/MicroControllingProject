@@ -16,6 +16,7 @@ typedef enum {
     ST_DRIVE,
     ST_REVERSE,
     ST_ROTATE,
+    ST_CORRIDOR_REVERSE,
     ST_CORRIDOR_TURN,
     ST_CORRIDOR_STOP,
 
@@ -63,6 +64,7 @@ static void change_to(State next)
             break;
 
         case ST_REVERSE:
+        case ST_CORRIDOR_REVERSE:
             Kobuki_Drive_Distance_Setpoint(robot.kobuki.distance, -PATHFIND_REVERSE_MM);
             break;
 
@@ -155,7 +157,7 @@ int main(void)
                     break;
                 }
                 if (Kobuki_IsCliffDetected(&robot.kobuki, SIDE_CENTRE)) {
-                    change_to((robot.corridor == 1) ? ST_CORRIDOR_TURN : ST_CORRIDOR_STOP);
+                    change_to((robot.corridor == 1) ? ST_CORRIDOR_REVERSE : ST_CORRIDOR_STOP);
                     break;
                 }
                 if (Corridor_Take_Wall_Hit(robot.kobuki.bumper)) {
@@ -204,6 +206,18 @@ int main(void)
                     break;
                 }
                 Kobuki_Rotate_Angle(robot.kobuki.angle);
+                break;
+
+            case ST_CORRIDOR_REVERSE:
+                if (Fault_B1_Wheeldrop()) {
+                    change_to(ST_FAULT);
+                    break;
+                }
+                if (robot.kobuki.distance_complete != 0) {
+                    change_to(ST_CORRIDOR_TURN);
+                    break;
+                }
+                Kobuki_Drive_Distance(robot.kobuki.distance);
                 break;
 
             case ST_CORRIDOR_STOP:
