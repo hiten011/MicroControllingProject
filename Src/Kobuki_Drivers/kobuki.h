@@ -51,6 +51,8 @@ void Kobuki_Rotate_Angle_Setpoint(int16_t current_angle_tick, int16_t rot_angle_
 void Kobuki_Rotate_Angle(int16_t current_angle_tick);
 void Kobuki_Drive_Distance_Setpoint(uint16_t current_distance_tick, int16_t distance);
 void Kobuki_Drive_Distance(uint16_t current_distance_tick);
+// Signed left-wheel travel in mm. The int16_t wrap is valid inside ±32767 ticks.
+int32_t Kobuki_Distance_Delta_Mm(uint16_t start_tick, uint16_t current_tick);
 // True when any cliff sensor in side_mask (right 0x01, centre 0x02, left 0x04) sees the ledge.
 bool Kobuki_IsCliffDetected(const Kobuki_Typedef *kobuki, uint8_t side_mask);
 
