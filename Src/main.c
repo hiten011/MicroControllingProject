@@ -13,9 +13,11 @@
 
 typedef enum {
     ST_IDLE,
+    ST_CLEAR,
     ST_SEARCH,
+    ST_TRACK,
+    ST_EDGE_SCAN,
     ST_DETECT,
-    ST_SPIN,
     ST_ALIGN,
     ST_ORIENT,
     ST_PATHFIND_DRIVE,
@@ -60,17 +62,16 @@ static void change_to(State next)
     state = next;
 
     switch (next) {
-        case ST_DETECT:
-            Kobuki_Drive(STOP);
-            Ultrasonic_Detect(&robot.object);
+        case ST_EDGE_SCAN:
+            robot.edge_mm = (uint16_t)(robot.closest_mm + EDGE_BAND_MM);
             break;
 
-        case ST_SPIN:
-            Kobuki_Rotate_Angle_Setpoint(robot.kobuki.angle, SPIN_STEP_DEG);
+        case ST_DETECT:
+            Kobuki_Drive(STOP);
             break;
 
         case ST_ALIGN:
-            Kobuki_Rotate_Angle_Setpoint(robot.kobuki.angle, ALIGNMENT_OFFSET_DEG);
+            Kobuki_Rotate_Angle_Setpoint(robot.kobuki.angle, (int16_t)(robot.centre_deg - robot.scan_deg));
             break;
 
         case ST_ORIENT: {
@@ -115,7 +116,9 @@ static void change_to(State next)
             Kobuki_Drive(STOP);
             break;
 
+        case ST_CLEAR:
         case ST_SEARCH:
+        case ST_TRACK:
         case ST_IDLE:
         case ST_PATHFIND_DRIVE:
             break;
@@ -127,31 +130,16 @@ static void wait_next_kobuki_packet(void)
     Kobuki_Read(&robot.kobuki);
 }
 
-// A hit stores layout on the SEARCH tick that enters ALIGN. That packet's ALIGN entry arms +13 degrees.
-// LAYOUT_NONE (range outside both bands) keeps searching; only A/B stop the sweep.
-typedef enum {
-    SEARCH_KEEP_ROTATING,
-    SEARCH_ALIGN_A,
-    SEARCH_ALIGN_B,
-} SearchDecision;
-
-static SearchDecision Search_Decide(const US_Typedef *object)
+static void scan_sample(void)
 {
-    if (object->detected == 0) {
-        return SEARCH_KEEP_ROTATING;
-    }
-    switch (Layout_From_Range(object->range_mm)) {
-        case LAYOUT_A:
-            Kobuki_Update_LEDs(RED, NONE);
-            return SEARCH_ALIGN_A;
-        case LAYOUT_B:
-            Kobuki_Update_LEDs(YELLOW, NONE);
-            return SEARCH_ALIGN_B;
-        case LAYOUT_NONE:
-            return SEARCH_KEEP_ROTATING;
-    }
-    // Layout's three cases all return. This keeps cppcheck's missingReturn quiet.
-    return SEARCH_KEEP_ROTATING;
+    Scan_Update_Turn(robot.kobuki.angle);
+    Ultrasonic_Detect(&robot.object);
+}
+
+static void scan_give_up(void)
+{
+    Kobuki_Update_LEDs(GREEN, NONE);
+    change_to(ST_FAULT);
 }
 
 int main(void)
@@ -170,10 +158,28 @@ int main(void)
                     robot.object.detected = 0;
                     robot.heading = 0;
                     robot.corridor = 0;
-                    change_to(ST_SEARCH);
+                    Scan_Start(robot.kobuki.angle);
+                    change_to(ST_CLEAR);
                     break;
                 }
                 Kobuki_Drive(STOP);
+                break;
+
+            case ST_CLEAR:
+                if (fault_all()) {
+                    change_to(ST_FAULT);
+                    break;
+                }
+                scan_sample();
+                if (robot.object.detected == 0) {
+                    change_to(ST_SEARCH);
+                    break;
+                }
+                if (robot.scan_deg <= -SCAN_FULL_DEG) {
+                    scan_give_up();
+                    break;
+                }
+                Kobuki_Rotate(-SCAN_SPEED_MM_S);
                 break;
 
             case ST_SEARCH:
@@ -181,19 +187,72 @@ int main(void)
                     change_to(ST_FAULT);
                     break;
                 }
-                switch (Search_Decide(&robot.object)) {
-                    case SEARCH_KEEP_ROTATING:
-                        change_to(ST_DETECT);
-                        break;
-                    case SEARCH_ALIGN_A:
-                        robot.layout = LAYOUT_A;
-                        change_to(ST_ALIGN);
-                        break;
-                    case SEARCH_ALIGN_B:
-                        robot.layout = LAYOUT_B;
-                        change_to(ST_ALIGN);
-                        break;
+                scan_sample();
+                if (robot.object.detected != 0) {
+                    robot.first_seen_deg = robot.scan_deg;
+                    robot.last_seen_deg = robot.scan_deg;
+                    robot.closest_mm = robot.object.range_mm;
+                    change_to(ST_TRACK);
+                    break;
                 }
+                if (robot.scan_deg >= SCAN_FULL_DEG + GIVE_UP_DEG) {
+                    scan_give_up();
+                    break;
+                }
+                Kobuki_Rotate(SCAN_SPEED_MM_S);
+                break;
+
+            case ST_TRACK:
+                if (fault_all()) {
+                    change_to(ST_FAULT);
+                    break;
+                }
+                scan_sample();
+                if (robot.object.detected != 0) {
+                    robot.last_seen_deg = robot.scan_deg;
+                    if (robot.object.range_mm < robot.closest_mm) {
+                        robot.closest_mm = robot.object.range_mm;
+                    }
+                }
+                if (robot.scan_deg - robot.last_seen_deg >= LOST_DEG) {
+                    change_to(ST_EDGE_SCAN);
+                    break;
+                }
+                if (robot.scan_deg - robot.first_seen_deg >= SCAN_FULL_DEG) {
+                    scan_give_up();
+                    break;
+                }
+                Kobuki_Rotate(SCAN_SPEED_MM_S);
+                break;
+
+            case ST_EDGE_SCAN:
+                if (fault_all()) {
+                    change_to(ST_FAULT);
+                    break;
+                }
+                scan_sample();
+                if (robot.object.range_mm < robot.closest_mm) {
+                    robot.closest_mm = robot.object.range_mm;
+                }
+                if (robot.object.range_mm <= robot.edge_mm) {
+                    if (robot.scan_deg < robot.edge_start_deg) {
+                        robot.edge_start_deg = robot.scan_deg;
+                    }
+                    if (robot.scan_deg > robot.edge_end_deg) {
+                        robot.edge_end_deg = robot.scan_deg;
+                    }
+                }
+                if (robot.edge_start_deg <= robot.edge_end_deg && robot.scan_deg <= robot.edge_start_deg - LOST_DEG) {
+                    robot.centre_deg =
+                        (int16_t)(robot.edge_start_deg + (robot.edge_end_deg - robot.edge_start_deg) / 2);
+                    change_to(ST_DETECT);
+                    break;
+                }
+                if (robot.scan_deg <= robot.first_seen_deg - GIVE_UP_DEG) {
+                    scan_give_up();
+                    break;
+                }
+                Kobuki_Rotate(-EDGE_SCAN_SPEED_MM_S);
                 break;
 
             case ST_DETECT:
@@ -201,23 +260,13 @@ int main(void)
                     change_to(ST_FAULT);
                     break;
                 }
-                if (Search_Decide(&robot.object) == SEARCH_KEEP_ROTATING) {
-                    change_to(ST_SPIN);
-                    break;
+                robot.layout = Layout_From_Range(robot.closest_mm);
+                if (robot.layout == LAYOUT_A) {
+                    Kobuki_Update_LEDs(RED, NONE);
+                } else {
+                    Kobuki_Update_LEDs(YELLOW, NONE);
                 }
-                change_to(ST_SEARCH);
-                break;
-
-            case ST_SPIN:
-                if (fault_all()) {
-                    change_to(ST_FAULT);
-                    break;
-                }
-                if (robot.kobuki.rotation_complete != 0) {
-                    change_to(ST_SEARCH);
-                    break;
-                }
-                Kobuki_Rotate_Angle(robot.kobuki.angle);
+                change_to(ST_ALIGN);
                 break;
 
             case ST_ALIGN:

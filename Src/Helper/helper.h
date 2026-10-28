@@ -12,19 +12,23 @@
 #define SIDE_CENTRE 0x02U
 #define SIDE_LEFT   0x04U
 
-#define SPIN_STEP_DEG 15
+// Scan angles are degrees from the heading at B0, anticlockwise positive.
+#define SCAN_FULL_DEG   360
+#define SCAN_SPEED_MM_S 100
+#define LOST_DEG        10
+#define GIVE_UP_DEG     40
+#define NO_ANGLE        10000
 
-// Inclusive Layout range bands (mm). Gap or overlap classifies as LAYOUT_NONE.
-#define LAYOUT_B_MIN_MM 500U
-#define LAYOUT_B_MAX_MM 750U
-#define LAYOUT_A_MIN_MM 800U
-#define LAYOUT_A_MAX_MM 1000U
+// Edge scan turns back clockwise across the bollard to find where it starts and ends.
+#define EDGE_SCAN_SPEED_MM_S 40
+#define EDGE_BAND_MM         60U
 
-#define ALIGNMENT_OFFSET_DEG 13
+// The closest reading on a bollard is under this for Layout B (the nearer bollard), otherwise Layout A.
+#define LAYOUT_B_MAX_MM 475U
 
 // Orient: Layout A turns CW to the bottom corridor; Layout B turns ACW to the left corridor.
-#define ORIENT_A_DEG (90)
-#define ORIENT_B_DEG (-90)
+#define ORIENT_A_DEG (-90)
+#define ORIENT_B_DEG (90)
 
 #define PATHFIND_DRIVE_SPEED 100
 // Figure 2 centreline legs: A bottom 1200 then right 1400; B left 1400 then top 1200.
@@ -52,11 +56,27 @@ typedef struct {
     uint8_t corridor;
     uint16_t corridor_start_distance;
     int16_t pathfind_recover_deg;
+    int16_t scan_prev_angle;
+    int32_t scan_ticks;
+    int16_t scan_deg;
+    int16_t first_seen_deg;
+    int16_t last_seen_deg;
+    uint16_t closest_mm;
+    uint16_t edge_mm;
+    int16_t edge_start_deg;
+    int16_t edge_end_deg;
+    int16_t centre_deg;
 } RobotData;
 
 extern RobotData robot;
 
-// Layout A or B when range_mm is in that band alone; otherwise LAYOUT_NONE.
-Layout Layout_From_Range(uint16_t range_mm);
+// Layout B when the closest bollard reading is under LAYOUT_B_MAX_MM, otherwise Layout A.
+Layout Layout_From_Range(uint16_t closest_mm);
+
+// Zero the scan angle and forget any bollard seen. Call when a scan starts.
+void Scan_Start(int16_t angle_tick);
+
+// Add the turn since the last call to scan_deg. Gyro ticks are 0.01 deg and wrap at +-18000.
+void Scan_Update_Turn(int16_t angle_tick);
 
 #endif
