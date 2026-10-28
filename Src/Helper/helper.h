@@ -14,8 +14,11 @@
 
 #define SPIN_STEP_DEG 15
 
-// Near bollard (B) when range is at or under the split; far bollard (A) when above it.
-#define LAYOUT_SPLIT_MM 500U
+// Inclusive Layout range bands (mm). Gap or overlap classifies as LAYOUT_NONE.
+#define LAYOUT_B_MIN_MM 500U
+#define LAYOUT_B_MAX_MM 750U
+#define LAYOUT_A_MIN_MM 800U
+#define LAYOUT_A_MAX_MM 1000U
 
 #define ALIGNMENT_OFFSET_DEG 13
 
@@ -53,7 +56,7 @@ typedef struct {
 
 extern RobotData robot;
 
-// Layout A when range_mm > LAYOUT_SPLIT_MM, otherwise Layout B.
+// Layout A or B when range_mm is in that band alone; otherwise LAYOUT_NONE.
 Layout Layout_From_Range(uint16_t range_mm);
 
 #endif
