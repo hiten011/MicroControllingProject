@@ -10,8 +10,12 @@ Layout Layout_From_Range(uint16_t closest_mm)
     return LAYOUT_A;
 }
 
-void Scan_Start(int16_t angle_tick)
+void Robot_Start(int16_t angle_tick)
 {
+    robot.layout = LAYOUT_NONE;
+    robot.object.detected = 0;
+    robot.heading = 0;
+    robot.corridor = 0;
     robot.scan_prev_angle = angle_tick;
     robot.scan_ticks = 0;
     robot.scan_deg = 0;

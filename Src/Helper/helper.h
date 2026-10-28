@@ -68,8 +68,8 @@ extern RobotData robot;
 // Layout B when the closest bollard reading is under LAYOUT_B_MAX_MM, otherwise Layout A.
 Layout Layout_From_Range(uint16_t closest_mm);
 
-// Zero the scan angle and forget any bollard seen. Call when a scan starts.
-void Scan_Start(int16_t angle_tick);
+// Reset the layout, object, heading, corridor and scan state. Call when a run starts.
+void Robot_Start(int16_t angle_tick);
 
 // Add the turn since the last call to scan_deg. Gyro ticks are 0.01 deg and wrap at +-18000.
 void Scan_Update_Turn(int16_t angle_tick);

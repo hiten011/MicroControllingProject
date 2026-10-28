@@ -146,11 +146,7 @@ int main(void)
         switch (state) {
             case ST_IDLE:
                 if ((robot.kobuki.button & BUTTON_B0) != 0) {
-                    robot.layout = LAYOUT_NONE;
-                    robot.object.detected = 0;
-                    robot.heading = 0;
-                    robot.corridor = 0;
-                    Scan_Start(robot.kobuki.angle);
+                    Robot_Start(robot.kobuki.angle);
                     change_to(ST_CLEAR);
                     break;
                 }
