@@ -263,6 +263,7 @@ int main(void)
                     break;
                 }
                 if (robot.kobuki.rotation_complete != 0) {
+                    Kobuki_Drive(STOP);
                     change_to(ST_ORIENT);
                     break;
                 }
@@ -276,7 +277,7 @@ int main(void)
                 }
                 if (robot.kobuki.rotation_complete != 0) {
                     robot.heading = robot.kobuki.angle;
-                    robot.corridor = 1;
+                    Corridor_Begin(1);
                     change_to(ST_PATHFIND_DRIVE);
                     break;
                 }
@@ -284,30 +285,23 @@ int main(void)
                 break;
 
             case ST_PATHFIND_DRIVE: {
-                bool front_cliff = Kobuki_IsCliffDetected(&robot.kobuki, SIDE_CENTRE);
-                uint8_t wall_mask = (robot.layout == LAYOUT_A) ? SIDE_LEFT : SIDE_RIGHT;
-                uint8_t ledge_mask = (robot.layout == LAYOUT_A) ? SIDE_RIGHT : SIDE_LEFT;
-                int16_t wall_nudge = (robot.layout == LAYOUT_A) ? PATHFIND_ROTATE_A_DEG : PATHFIND_ROTATE_B_DEG;
+                bool corridor_done =
+                    Kobuki_Distance_Delta_Mm(robot.corridor_start_distance,
+                                             robot.kobuki.distance) >= Corridor_Length_Mm();
 
                 if (b1_or_wheeldrop()) {
                     change_to(ST_FAULT);
                     break;
                 }
-                if (front_cliff && robot.corridor == 1) {
+                if (corridor_done && robot.corridor == 1) {
                     change_to(ST_PATHFIND_CORRIDOR_TURN);
                     break;
                 }
-                if (front_cliff && robot.corridor == 2) {
+                if (corridor_done && robot.corridor == 2) {
                     change_to(ST_PATHFIND_CORRIDOR_STOP);
                     break;
                 }
-                if ((robot.kobuki.bumper & wall_mask) != 0) {
-                    robot.pathfind_recover_deg = wall_nudge;
-                    change_to(ST_PATHFIND_REVERSE);
-                    break;
-                }
-                if (Kobuki_IsCliffDetected(&robot.kobuki, ledge_mask)) {
-                    robot.pathfind_recover_deg = (int16_t)(-wall_nudge);
+                if (Corridor_Wall_Hit(robot.kobuki.bumper)) {
                     change_to(ST_PATHFIND_REVERSE);
                     break;
                 }
@@ -347,7 +341,7 @@ int main(void)
                 }
                 if (robot.kobuki.rotation_complete != 0) {
                     robot.heading = robot.kobuki.angle;
-                    robot.corridor = 2;
+                    Corridor_Begin(2);
                     change_to(ST_PATHFIND_DRIVE);
                     break;
                 }

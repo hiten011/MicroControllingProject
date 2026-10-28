@@ -1,6 +1,7 @@
 #ifndef HELPER_H
 #define HELPER_H
 
+#include <stdbool.h>
 #include <stdint.h>
 #include "kobuki.h"
 #include "ultrasonic.h"
@@ -38,6 +39,12 @@
 #define PATHFIND_ROTATE_A_DEG    (-10)
 #define PATHFIND_ROTATE_B_DEG    10
 
+// Figure 2 centreline legs. A is bottom 1200 then right 1400. B is left 1400 then top 1200.
+#define PATHFIND_CORRIDOR_1_A_MM 1200
+#define PATHFIND_CORRIDOR_2_A_MM 1400
+#define PATHFIND_CORRIDOR_1_B_MM 1400
+#define PATHFIND_CORRIDOR_2_B_MM 1200
+
 #define STORAGE_TURN_A_DEG  135
 #define STORAGE_TURN_B_DEG  (-135)
 #define STORAGE_DRIVE_IN_MM 1000
@@ -50,6 +57,7 @@ typedef struct {
     Layout layout;
     int16_t heading;
     uint8_t corridor;
+    uint16_t corridor_start_distance; // left-wheel tick latched by Corridor_Begin
     int16_t pathfind_recover_deg;
     int16_t scan_prev_angle;
     int32_t scan_ticks;
@@ -70,6 +78,15 @@ Layout Layout_From_Range(uint16_t closest_mm);
 
 // Reset the layout, object, heading, corridor and scan state. Call when a run starts.
 void Robot_Start(int16_t angle_tick);
+
+// Arm corridor 1 or 2 and latch the left-wheel tick. Recovery must not call this.
+void Corridor_Begin(uint8_t index);
+
+// Figure-2 length for robot.layout and robot.corridor, in mm.
+int16_t Corridor_Length_Mm(void);
+
+// True only for the storage-wall bumper. Latches pathfind_recover_deg to the wall nudge.
+bool Corridor_Wall_Hit(uint8_t bumper);
 
 // Add the turn since the last call to scan_deg. Gyro ticks are 0.01 deg and wrap at +-18000.
 void Scan_Update_Turn(int16_t angle_tick);
