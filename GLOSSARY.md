@@ -103,12 +103,12 @@ _Avoid_: bearing, heading (alone, which also names the Centre heading)
 The phase in which the AMU drives the first corridor and then the second, keeping clear of the storage wall and the ledge. It spans Drive, Reverse, Rotate, Corridor turn and Corridor stop.
 _Avoid_: navigate, route-follow, PATHFIND 1 / PATHFIND 2 (it is one phase run twice)
 
-**Corridor length**:
-The fixed distance the AMU must travel along each corridor before that corridor ends. Progress is net forward travel from the start of the corridor (reversals count against it).
-_Avoid_: path length, segment length
+**Front cliff**:
+The cliff sensor at the front centre of the AMU seeing the ledge ahead. In Drive it marks the end of the corridor, unlike the side cliff sensors, whose ledge cliff sends Drive into Reverse.
+_Avoid_: centre cliff, edge ahead
 
 **Drive**:
-The State in which the AMU drives forward along the current corridor until the Corridor length is reached, or the storage wall or the ledge intervenes. A storage-wall bumper or ledge cliff sends it into Reverse; reaching the Corridor length ends the corridor.
+The State in which the AMU drives forward along the current corridor until the Front cliff sees the ledge, or the storage wall or the ledge intervenes. A storage-wall bumper or ledge cliff sends it into Reverse; the Front cliff ends the corridor.
 _Avoid_: PATHFIND_DRIVE (code id), cruise
 
 **Reverse**:

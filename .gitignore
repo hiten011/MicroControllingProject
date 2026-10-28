@@ -24,3 +24,4 @@ sim/kobuki_sim_mingw.exe
 sim/obj_linux/
 sim/obj_mingw/
 sim_recover_check/
+sim_front_cliff_out/

@@ -1,6 +1,7 @@
 #ifndef KOBUKI_H
 #define KOBUKI_H
 
+#include <stdbool.h>
 #include <stdint.h>
 
 // Kobuki structure
@@ -50,8 +51,8 @@ void Kobuki_Rotate_Angle_Setpoint(int16_t current_angle_tick, int16_t rot_angle_
 void Kobuki_Rotate_Angle(int16_t current_angle_tick);
 void Kobuki_Drive_Distance_Setpoint(uint16_t current_distance_tick, int16_t distance);
 void Kobuki_Drive_Distance(uint16_t current_distance_tick);
-// Signed wheel travel in mm from start_tick to current_tick (uint16 wrap-aware).
-int32_t Kobuki_Distance_Delta_Mm(uint16_t start_tick, uint16_t current_tick);
+// True when any cliff sensor in side_mask (right 0x01, centre 0x02, left 0x04) sees the ledge.
+bool Kobuki_IsCliffDetected(const Kobuki_Typedef *kobuki, uint8_t side_mask);
 
 // kobuki update LEDs
 void Kobuki_Update_LEDs(Kobuki_LED_Enum led_1_colour, Kobuki_LED_Enum led_2_colour);

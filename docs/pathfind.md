@@ -20,9 +20,9 @@ flowchart TB
     end
 
     orient -->|"rotation complete<br/>corridor = 1"| drive
-    drive -->|"1: corridor length, corridor 1"| turn
+    drive -->|"1: front cliff, corridor 1"| turn
     turn -->|"rotation complete, corridor = 2"| drive
-    drive -->|"1: corridor length, corridor 2"| stop
+    drive -->|"1: front cliff, corridor 2"| stop
     stop -->|"ε"| storage
     drive -->|"2: storage-wall bumper<br/>3: ledge cliff"| reverse
     reverse -->|"distance complete"| rotate
@@ -53,7 +53,7 @@ Each Pathfind case in `Src/main.c` checks conditions in priority order and takes
 
 | State | Checks, in order |
 | --- | --- |
-| Drive | fault → corridor length (corridor 1) → corridor length (corridor 2) → storage-wall bumper → ledge cliff → drive forward |
+| Drive | fault → front cliff (corridor 1) → front cliff (corridor 2) → storage-wall bumper → ledge cliff → drive forward |
 | Reverse | fault → distance complete → reverse |
 | Rotate | fault → rotation complete → rotate |
 | Corridor turn | fault → rotation complete → rotate |
@@ -62,10 +62,10 @@ Each Pathfind case in `Src/main.c` checks conditions in priority order and takes
 ## Drive
 
 - **Do:** `Kobuki_Drive(PATHFIND_DRIVE_SPEED)` (100 mm/s).
-- **Corridor length:** signed wheel travel from `corridor_start_distance` reaches the Figure 2 centreline length for this layout and corridor (A: 1200 then 1400 mm; B: 1400 then 1200 mm). Latched at Orient → Drive and Corridor turn → Drive; not re-latched on Rotate → Drive. Reverse subtracts from the total.
+- **Front cliff:** centre sensor (`0x02`) via `Kobuki_IsCliffDetected(&robot.kobuki, SIDE_CENTRE)`. It ends the corridor: corridor 1 goes to Corridor turn, corridor 2 to Corridor stop. No reverse after a front cliff.
 - **Storage-wall bumper:** Layout A left (`0x04`), Layout B right (`0x01`). Ledge-side bumper is ignored.
 - **Ledge cliff:** Layout A right (`0x01`), Layout B left (`0x04`). Storage-wall-side cliff is ignored.
-- **Ignored in Drive:** centre cliff, ledge-side bumper, storage-wall-side cliff, centre bumper.
+- **Ignored in Drive:** ledge-side bumper, storage-wall-side cliff, centre bumper.
 - On either hit, Drive latches `pathfind_recover_deg` before Reverse: wall uses `PATHFIND_ROTATE_*` (away from the storage wall); ledge uses the negation (away from the ledge).
 
 ## Reverse
@@ -90,7 +90,7 @@ If Drive still sees the wall bumper or ledge cliff on the next packet after Rota
 
 ## Corridor turn / stop
 
-- **Turn (corridor 1):** Layout A +90° (anticlockwise), Layout B −90° (clockwise). On leaving it latches `heading`, sets `corridor = 2`, and latches `corridor_start_distance`.
+- **Turn (corridor 1):** Layout A +90° (anticlockwise), Layout B −90° (clockwise). On leaving it latches `heading`, and sets `corridor = 2`.
 - **Stop (corridor 2):** stop once on entry, then straight into Storage Turn on the next packet.
 
 ## Constants
@@ -98,8 +98,6 @@ If Drive still sees the wall bumper or ledge cliff on the next packet after Rota
 | Macro | Value | Used by |
 | --- | --- | --- |
 | `PATHFIND_DRIVE_SPEED` | 100 | Drive |
-| `PATHFIND_CORRIDOR_1_A_MM` / `_2_A_MM` | 1200 / 1400 | Drive (Layout A) |
-| `PATHFIND_CORRIDOR_1_B_MM` / `_2_B_MM` | 1400 / 1200 | Drive (Layout B) |
 | `PATHFIND_REVERSE_MM` | 50 | Reverse |
 | `PATHFIND_ROTATE_A_DEG` / `_B_DEG` | −10 / +10 | Drive latches into `pathfind_recover_deg` (wall); ledge uses the negation |
 | `PATHFIND_CORNER_A_DEG` / `_B_DEG` | +90 / −90 | Corridor turn |
