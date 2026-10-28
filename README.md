@@ -13,7 +13,7 @@ One control step per received Kobuki packet (`Kobuki_Read()`, then a `switch` on
 ```
 IDLE ──B0──▶ SEARCH ─▶ IDENTIFY ─▶ ORIENT ──▶ PATHFIND ──▶ STORAGE ──▶ IDLE
 
-PATHFIND = Drive, Reverse, Rotate, Corridor turn / stop
+PATHFIND = Drive, Reverse, Rotate, Corridor turn / reverse / stop
 STORAGE  = Turn, Drive-in, Deposit
 
 Any State except IDLE ──B1 / wheeldrop──▶ STOP / FAULT ──▶ IDLE
