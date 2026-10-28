@@ -1,3 +1,4 @@
+#include "my_stm_helper.h"
 #include <stdint.h>
 #include <stdbool.h>
 
@@ -141,10 +142,10 @@ static SearchDecision Search_Decide(const US_Typedef *object)
     }
     switch (Layout_From_Range(object->range_mm)) {
         case LAYOUT_A:
-            Kobuki_Update_LEDs(RED, Kobuki_LED_Enum NONE);
+            Kobuki_Update_LEDs(RED, NONE);
             return SEARCH_ALIGN_A;
         case LAYOUT_B:
-            Kobuki_Update_LEDs(YELLOW, Kobuki_LED_Enum NONE);
+            Kobuki_Update_LEDs(YELLOW, NONE);
             return SEARCH_ALIGN_B;
         case LAYOUT_NONE:
             return SEARCH_KEEP_ROTATING;
