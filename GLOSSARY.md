@@ -100,11 +100,11 @@ The direction the AMU holds while driving a corridor. It is set afresh at the st
 _Avoid_: bearing, heading (alone, which also names the Centre heading)
 
 **Pathfind**:
-The phase in which the AMU drives the first corridor and then the second for the corridor length, and backs off a storage-wall bumper. It spans Drive, Reverse, Rotate, Corridor turn and Corridor stop. Pathfind does not read the cliff sensors.
+The phase in which the AMU drives the first corridor and then the second for the corridor length, backs off a storage-wall bumper, and recovers from a ledge cliff. It spans Drive, Reverse, Rotate, Corridor turn and Corridor stop. Corridors end on left-wheel distance, not on the front cliff.
 _Avoid_: navigate, route-follow, PATHFIND 1 / PATHFIND 2 (it is one phase run twice)
 
 **Front cliff**:
-The cliff sensor at the front centre of the AMU seeing the ledge ahead. Pathfind Drive does not read it, and it does not end a corridor.
+The cliff sensor at the front centre of the AMU seeing the ledge ahead. Pathfind Drive does not use it to end a corridor.
 _Avoid_: centre cliff, edge ahead
 
 **Corridor length**:
@@ -112,15 +112,15 @@ The left-wheel travel that ends a corridor, from the tick latched by `Corridor_B
 _Avoid_: remaining distance, front-cliff end
 
 **Drive**:
-The State in which the AMU drives forward along the current corridor until the corridor length is reached. A storage-wall bumper sends it into Reverse. The front cliff and the side cliff sensors do not end Drive and do not send it into Reverse.
+The State in which the AMU drives forward along the current corridor until the corridor length is reached. A storage-wall bumper or a ledge cliff sends it into Reverse. The front cliff does not end Drive.
 _Avoid_: PATHFIND_DRIVE (code id), cruise
 
 **Reverse**:
-The State in which the AMU backs a fixed distance clear of the storage wall after the storage-wall bumper fires during Drive, then always enters Rotate.
+The State in which the AMU backs a fixed distance clear of the storage wall or the ledge after that side's bumper or cliff fires during Drive, then always enters Rotate.
 _Avoid_: Realign, back-off, PATHFIND_REVERSE (code id)
 
 **Rotate**:
-The State in which the AMU turns the nudge latched at Reverse entry (`pathfind_recover_deg`), away from the storage wall, then returns to Drive with no forward resume and without starting the corridor length again. It does not restore the corridor heading.
+The State in which the AMU turns the nudge latched at Reverse entry (`pathfind_recover_deg`), away from the storage wall or the ledge, then returns to Drive with no forward resume and without starting the corridor length again. It does not restore the corridor heading.
 _Avoid_: Realign, Turn (Storage), PATHFIND_ROTATE (code id)
 
 **Corridor turn**:

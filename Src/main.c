@@ -305,6 +305,10 @@ int main(void)
                     change_to(ST_PATHFIND_REVERSE);
                     break;
                 }
+                if (Corridor_Ledge_Hit(&robot.kobuki)) {
+                    change_to(ST_PATHFIND_REVERSE);
+                    break;
+                }
                 Kobuki_Drive(PATHFIND_DRIVE_SPEED);
                 break;
             }
