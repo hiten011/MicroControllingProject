@@ -76,11 +76,11 @@ The direction the AMU holds while driving a corridor. It is set afresh at the st
 _Avoid_: bearing, heading (alone)
 
 **Pathfind**:
-The phase in which the AMU drives the first corridor and then the second, backs off a storage-wall bumper, and recovers from a ledge cliff. It spans Drive, Reverse, Rotate, Corridor turn and Corridor stop. Each corridor ends on the front cliff.
+The phase in which the AMU drives the first corridor and then the second, backs off a storage-wall bumper, and recovers from a ledge cliff. It spans Drive, Reverse, Rotate, Corridor turn, Corridor reverse and Corridor stop. Each corridor ends on the front cliff.
 _Avoid_: navigate, route-follow, PATHFIND 1 / PATHFIND 2 (it is one phase run twice)
 
 **Front cliff**:
-The cliff sensor at the front centre of the AMU seeing the ledge ahead. It ends a corridor: the first in Corridor turn, the second in Corridor stop.
+The cliff sensor at the front centre of the AMU seeing the ledge ahead. It ends a corridor: the first in Corridor reverse, the second in Corridor stop.
 _Avoid_: centre cliff, edge ahead
 
 **Drive**:
@@ -95,8 +95,12 @@ _Avoid_: Realign, back-off
 The State in which the AMU turns the nudge latched in Drive (`pathfind_recover_deg`), away from the storage wall or the ledge, then returns to Drive with no forward resume. It does not restore the corridor heading.
 _Avoid_: Realign, Turn (Storage)
 
+**Corridor reverse**:
+The State at the end of the first corridor: the AMU backs the fixed Reverse distance off the front cliff, then enters Corridor turn.
+_Avoid_: Reverse (alone, that is the storage-wall and ledge recovery), back-off
+
 **Corridor turn**:
-The State at the end of the first corridor: the AMU turns on the spot onto the second corridor and latches a new corridor heading.
+The State after Corridor reverse: the AMU turns on the spot onto the second corridor and latches a new corridor heading.
 _Avoid_: Front-cliff turn, corner turn, mid-route turn
 
 **Corridor stop**:
