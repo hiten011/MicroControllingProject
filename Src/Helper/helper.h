@@ -34,7 +34,7 @@
 
 #define STORAGE_TURN_A_DEG  135
 #define STORAGE_TURN_B_DEG  (-135)
-#define STORAGE_DRIVE_IN_MM 1000
+#define STORAGE_DRIVE_IN_MM 900
 
 typedef enum { LAYOUT_NONE, LAYOUT_A, LAYOUT_B } Layout;
 
