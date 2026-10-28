@@ -48,8 +48,12 @@ One ultrasonic reading taken while the AMU is stationary, recording whether an o
 _Avoid_: Ping, sample
 
 **Detection**:
-A Detect reading in which an object is within detection range. SEARCH stores the Layout and enters Align when the class is A or B. When the class is LAYOUT_NONE, SEARCH enters Fault and leaves the stored Layout unchanged.
+A Detect reading in which an object is within detection range. SEARCH stores the Layout and enters Align when the Layout range band class is A or B. When the class is LAYOUT_NONE, SEARCH enters Fault and leaves the stored Layout unchanged.
 _Avoid_: Hit
+
+**Layout range band**:
+An inclusive millimetre window of ultrasonic range that classifies a Detection as Layout A or Layout B. A reading in neither band, or in both, is LAYOUT_NONE.
+_Avoid_: split, threshold, LAYOUT_SPLIT
 
 **Spin**:
 Turning the AMU on the spot by one Step between two Detect readings.
