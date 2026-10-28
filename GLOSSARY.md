@@ -40,7 +40,7 @@ _Avoid_: drop point, bay
 ### Finding the layout
 
 **Search**:
-The phase in which the AMU looks for a bollard so that it can learn the Layout. It ends when SEARCH stores Layout A or Layout B and enters Align, or when a Detection has no Layout and SEARCH enters Fault.
+The phase in which the AMU looks for a bollard so that it can learn the Layout. It ends when SEARCH stores Layout A or Layout B and enters Align. A Detection whose Layout range band is LAYOUT_NONE is ignored and Search keeps spinning.
 _Avoid_: Scan
 
 **Detect**:
@@ -48,11 +48,11 @@ One ultrasonic reading taken while the AMU is stationary, recording whether an o
 _Avoid_: Ping, sample
 
 **Detection**:
-A Detect reading in which an object is within detection range. SEARCH stores the Layout and enters Align when the Layout range band class is A or B. When the class is LAYOUT_NONE, SEARCH enters Fault and leaves the stored Layout unchanged.
+A Detect reading in which an object is within detection range. SEARCH stores the Layout and enters Align when the Layout range band class is A or B. When the class is LAYOUT_NONE, Search keeps rotating and leaves the stored Layout unchanged.
 _Avoid_: Hit
 
 **Layout range band**:
-An inclusive millimetre window of ultrasonic range that classifies a Detection as Layout A or Layout B. A reading in neither band, or in both, is LAYOUT_NONE.
+An inclusive millimetre window of ultrasonic range that classifies a Detection as Layout A or Layout B. A reading in neither band, or in both, is LAYOUT_NONE and does not end Search.
 _Avoid_: split, threshold, LAYOUT_SPLIT
 
 **Spin**:
@@ -150,7 +150,7 @@ The State in which the AMU holds still until B0 (start) is pressed. It is the fi
 _Avoid_: Standby, Ready, IDLE (code id)
 
 **Fault**:
-The State the AMU stops in when it must not go on: B1 pressed, a wheel dropped, an unexpected bumper or cliff (which ones depends on the State), or a Detection whose layout is LAYOUT_NONE. It stops the motors, then returns to Idle on the next Tick. The diagram calls it STOP / FAULT.
+The State the AMU stops in when it must not go on: B1 pressed, a wheel dropped, or an unexpected bumper or cliff (which ones depends on the State). It stops the motors, then returns to Idle on the next Tick. The diagram calls it STOP / FAULT.
 _Avoid_: Error, Stop, E-stop
 
 **State**:

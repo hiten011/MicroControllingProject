@@ -126,13 +126,12 @@ static void wait_next_kobuki_packet(void)
     Kobuki_Read(&robot.kobuki);
 }
 
-// SEARCH_FAULT_LAYOUT stays because later states treat non-A as B.
 // A hit stores layout on the SEARCH tick that enters ALIGN. That packet's ALIGN entry arms +13 degrees.
+// LAYOUT_NONE (range outside both bands) keeps searching; only A/B stop the sweep.
 typedef enum {
     SEARCH_KEEP_ROTATING,
     SEARCH_ALIGN_A,
     SEARCH_ALIGN_B,
-    SEARCH_FAULT_LAYOUT,
 } SearchDecision;
 
 static SearchDecision Search_Decide(const US_Typedef *object)
@@ -148,11 +147,10 @@ static SearchDecision Search_Decide(const US_Typedef *object)
             Kobuki_Update_LEDs(YELLOW, Kobuki_LED_Enum NONE);
             return SEARCH_ALIGN_B;
         case LAYOUT_NONE:
-            Kobuki_Update_LEDs(GREEN, Kobuki_LED_Enum NONE);
-            return SEARCH_FAULT_LAYOUT;
+            return SEARCH_KEEP_ROTATING;
     }
     // Layout's three cases all return. This keeps cppcheck's missingReturn quiet.
-    return SEARCH_FAULT_LAYOUT;
+    return SEARCH_KEEP_ROTATING;
 }
 
 int main(void)
@@ -185,9 +183,6 @@ int main(void)
                 switch (Search_Decide(&robot.object)) {
                     case SEARCH_KEEP_ROTATING:
                         change_to(ST_DETECT);
-                        break;
-                    case SEARCH_FAULT_LAYOUT:
-                        change_to(ST_FAULT);
                         break;
                     case SEARCH_ALIGN_A:
                         robot.layout = LAYOUT_A;
