@@ -57,7 +57,7 @@ typedef struct {
     Layout layout;
     int16_t heading;
     uint8_t corridor;
-    uint16_t corridor_start_distance; // left-wheel tick latched by Corridor_Begin
+    uint16_t corridor_start_tick;
     int16_t pathfind_recover_deg;
     int16_t scan_prev_angle;
     int32_t scan_ticks;
@@ -84,11 +84,9 @@ void Corridor_Begin(uint8_t index);
 
 int16_t Corridor_Length_Mm(void);
 
-// A hit also latches pathfind_recover_deg. A miss leaves that field alone.
-bool Corridor_Wall_Hit(uint8_t bumper);
+bool Corridor_Take_Wall_Hit(uint8_t bumper);
 
-// Ledge-side cliff. Latches the opposite nudge from a wall hit.
-bool Corridor_Ledge_Hit(const Kobuki_Typedef *kobuki);
+bool Corridor_Take_Ledge_Hit(const Kobuki_Typedef *kobuki);
 
 // Add the turn since the last call to scan_deg. Gyro ticks are 0.01 deg and wrap at +-18000.
 void Scan_Update_Turn(int16_t angle_tick);
