@@ -57,6 +57,19 @@ bool Corridor_Wall_Hit(uint8_t bumper)
     return true;
 }
 
+bool Corridor_Ledge_Hit(const Kobuki_Typedef *kobuki)
+{
+    uint8_t ledge_mask = (robot.layout == LAYOUT_A) ? SIDE_RIGHT : SIDE_LEFT;
+    int16_t wall_nudge = (robot.layout == LAYOUT_A) ? PATHFIND_ROTATE_A_DEG
+                                                    : PATHFIND_ROTATE_B_DEG;
+
+    if (!Kobuki_IsCliffDetected(kobuki, ledge_mask)) {
+        return false;
+    }
+    robot.pathfind_recover_deg = (int16_t)(-wall_nudge);
+    return true;
+}
+
 void Scan_Update_Turn(int16_t angle_tick)
 {
     int32_t diff = (int32_t)angle_tick - robot.scan_prev_angle;
