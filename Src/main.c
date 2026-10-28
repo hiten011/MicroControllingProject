@@ -142,10 +142,13 @@ static SearchDecision Search_Decide(const US_Typedef *object)
     }
     switch (Layout_From_Range(object->range_mm)) {
         case LAYOUT_A:
+            Kobuki_Update_LEDs(RED, Kobuki_LED_Enum NONE);
             return SEARCH_ALIGN_A;
         case LAYOUT_B:
+            Kobuki_Update_LEDs(YELLOW, Kobuki_LED_Enum NONE);
             return SEARCH_ALIGN_B;
         case LAYOUT_NONE:
+            Kobuki_Update_LEDs(GREEN, Kobuki_LED_Enum NONE);
             return SEARCH_FAULT_LAYOUT;
     }
     // Layout's three cases all return. This keeps cppcheck's missingReturn quiet.
