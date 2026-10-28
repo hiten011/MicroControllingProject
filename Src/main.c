@@ -286,7 +286,7 @@ int main(void)
 
             case ST_PATHFIND_DRIVE: {
                 bool corridor_done =
-                    Kobuki_Distance_Delta_Mm(robot.corridor_start_distance,
+                    Kobuki_Distance_Delta_Mm(robot.corridor_start_tick,
                                              robot.kobuki.distance) >= Corridor_Length_Mm();
 
                 if (b1_or_wheeldrop()) {
@@ -301,11 +301,11 @@ int main(void)
                     change_to(ST_PATHFIND_CORRIDOR_STOP);
                     break;
                 }
-                if (Corridor_Wall_Hit(robot.kobuki.bumper)) {
+                if (Corridor_Take_Wall_Hit(robot.kobuki.bumper)) {
                     change_to(ST_PATHFIND_REVERSE);
                     break;
                 }
-                if (Corridor_Ledge_Hit(&robot.kobuki)) {
+                if (Corridor_Take_Ledge_Hit(&robot.kobuki)) {
                     change_to(ST_PATHFIND_REVERSE);
                     break;
                 }

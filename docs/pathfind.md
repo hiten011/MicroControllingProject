@@ -62,9 +62,9 @@ Each Pathfind case in `Src/main.c` checks conditions in priority order and takes
 ## Drive
 
 - **Do:** `Kobuki_Drive(PATHFIND_DRIVE_SPEED)` (100 mm/s).
-- **Corridor length:** `Kobuki_Distance_Delta_Mm` from `corridor_start_distance` is at least `Corridor_Length_Mm()`. Corridor 1 goes to Corridor turn. Corridor 2 goes to Corridor stop. The same comparison is used for both corridors.
-- **Storage-wall bumper:** `Corridor_Wall_Hit`. Layout A left (`0x04`), Layout B right (`0x01`). It latches `pathfind_recover_deg` to `PATHFIND_ROTATE_A_DEG` or `PATHFIND_ROTATE_B_DEG` and enters Reverse. Ledge-side bumper is ignored.
-- **Ledge cliff:** `Corridor_Ledge_Hit`. Layout A right (`0x01`), Layout B left (`0x04`). It latches the opposite nudge and enters Reverse. The front centre cliff does not end a corridor and does not enter Reverse.
+- **Corridor length:** `Kobuki_Distance_Delta_Mm` from `corridor_start_tick` is at least `Corridor_Length_Mm()`. Corridor 1 goes to Corridor turn. Corridor 2 goes to Corridor stop. The same comparison is used for both corridors.
+- **Storage-wall bumper:** `Corridor_Take_Wall_Hit`. Layout A left (`0x04`), Layout B right (`0x01`). It latches `pathfind_recover_deg` to `PATHFIND_ROTATE_A_DEG` or `PATHFIND_ROTATE_B_DEG` and enters Reverse. Ledge-side bumper is ignored.
+- **Ledge cliff:** `Corridor_Take_Ledge_Hit`. Layout A right (`0x01`), Layout B left (`0x04`). It latches the opposite nudge and enters Reverse. The front centre cliff does not end a corridor and does not enter Reverse.
 
 ## Reverse
 

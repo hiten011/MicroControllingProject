@@ -16,7 +16,7 @@ void Robot_Start(int16_t angle_tick)
     robot.object.detected = 0;
     robot.heading = 0;
     robot.corridor = 0;
-    robot.corridor_start_distance = 0;
+    robot.corridor_start_tick = 0;
     robot.scan_prev_angle = angle_tick;
     robot.scan_ticks = 0;
     robot.scan_deg = 0;
@@ -32,7 +32,7 @@ void Robot_Start(int16_t angle_tick)
 void Corridor_Begin(uint8_t index)
 {
     robot.corridor = index;
-    robot.corridor_start_distance = robot.kobuki.distance;
+    robot.corridor_start_tick = robot.kobuki.distance;
 }
 
 int16_t Corridor_Length_Mm(void)
@@ -45,7 +45,7 @@ int16_t Corridor_Length_Mm(void)
                                  : PATHFIND_CORRIDOR_2_B_MM;
 }
 
-bool Corridor_Wall_Hit(uint8_t bumper)
+bool Corridor_Take_Wall_Hit(uint8_t bumper)
 {
     uint8_t wall_mask = (robot.layout == LAYOUT_A) ? SIDE_LEFT : SIDE_RIGHT;
 
@@ -57,7 +57,7 @@ bool Corridor_Wall_Hit(uint8_t bumper)
     return true;
 }
 
-bool Corridor_Ledge_Hit(const Kobuki_Typedef *kobuki)
+bool Corridor_Take_Ledge_Hit(const Kobuki_Typedef *kobuki)
 {
     uint8_t ledge_mask = (robot.layout == LAYOUT_A) ? SIDE_RIGHT : SIDE_LEFT;
     int16_t wall_nudge = (robot.layout == LAYOUT_A) ? PATHFIND_ROTATE_A_DEG
