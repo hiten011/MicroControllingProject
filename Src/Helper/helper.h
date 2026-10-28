@@ -11,6 +11,7 @@
 #define SIDE_RIGHT  0x01U
 #define SIDE_CENTRE 0x02U
 #define SIDE_LEFT   0x04U
+#define SIDE_ANY    (SIDE_RIGHT | SIDE_CENTRE | SIDE_LEFT)
 
 // Scan angles are degrees from the heading at B0, anticlockwise positive.
 #define SCAN_FULL_DEG   360
@@ -31,11 +32,6 @@
 #define ORIENT_B_DEG (90)
 
 #define PATHFIND_DRIVE_SPEED 100
-// Figure 2 centreline legs: A bottom 1200 then right 1400; B left 1400 then top 1200.
-#define PATHFIND_CORRIDOR_1_A_MM 1200
-#define PATHFIND_CORRIDOR_2_A_MM 1400
-#define PATHFIND_CORRIDOR_1_B_MM 1400
-#define PATHFIND_CORRIDOR_2_B_MM 1200
 #define PATHFIND_CORNER_A_DEG    90
 #define PATHFIND_CORNER_B_DEG    (-90)
 #define PATHFIND_REVERSE_MM      50
@@ -54,7 +50,6 @@ typedef struct {
     Layout layout;
     int16_t heading;
     uint8_t corridor;
-    uint16_t corridor_start_distance;
     int16_t pathfind_recover_deg;
     int16_t scan_prev_angle;
     int32_t scan_ticks;

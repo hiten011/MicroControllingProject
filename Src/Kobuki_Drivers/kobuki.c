@@ -218,10 +218,9 @@ void Kobuki_Rotate_Angle(int16_t current_angle_tick)
     }
 }
 
-int32_t Kobuki_Distance_Delta_Mm(uint16_t start_tick, uint16_t current_tick)
+bool Kobuki_IsCliffDetected(const Kobuki_Typedef *kobuki, uint8_t side_mask)
 {
-    int16_t delta_ticks = (int16_t)(current_tick - start_tick);
-    return (int32_t)((double)delta_ticks * MM_PER_TICK);
+    return (kobuki->cliff & side_mask) != 0;
 }
 
 void Kobuki_Drive_Distance_Setpoint(uint16_t current_distance_tick, int16_t distance)
