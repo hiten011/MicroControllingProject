@@ -1,8 +1,8 @@
 # Pathfind
 
-How the AMU drives the two corridors while staying clear of the storage wall and the ledge. Terms match [`GLOSSARY.md`](../GLOSSARY.md). The full diagram is [`amu_fsm.drawio`](amu_fsm.drawio) (preview: [`amu_fsm_preview.png`](amu_fsm_preview.png)).
+How the AMU drives the two corridors until the front cliff, backs off the storage wall, and recovers from a ledge cliff. Terms match [`GLOSSARY.md`](../GLOSSARY.md). The full diagram is [`amu_fsm.drawio`](amu_fsm.drawio) (preview: [`amu_fsm_preview.png`](amu_fsm_preview.png)).
 
-Pathfind runs once per corridor (`corridor = 1`, then `corridor = 2` after Corridor turn). Layout A has the storage wall on the right and the ledge on the left; Layout B is the mirror image.
+Pathfind runs once per corridor. Orient completion sets `corridor = 1`. Corridor turn completion sets `corridor = 2`. With Orient A = −90° / B = +90°, Layout A has the storage wall on the left and the ledge on the right; Layout B is the mirror image. A corridor ends on the front cliff, not on distance.
 
 ```mermaid
 flowchart TB
@@ -13,16 +13,16 @@ flowchart TB
     subgraph pathfind["Pathfind: runs once per corridor"]
         direction TB
         drive["<b>Drive</b><br/>100 mm/s forward"]
-        turn["<b>Corridor turn</b><br/>A +90° / B −90°"]
+        turn["<b>Corridor turn</b><br/>A +90° / B −100°"]
         stop["<b>Corridor stop</b><br/>stop once"]
         reverse["<b>Reverse</b><br/>back 50 mm"]
-        rotate["<b>Rotate</b><br/>A +10° / B −10°"]
+        rotate["<b>Rotate</b><br/>latched nudge"]
     end
 
     orient -->|"rotation complete<br/>corridor = 1"| drive
-    drive -->|"1: corridor length, corridor 1"| turn
-    turn -->|"rotation complete, corridor = 2"| drive
-    drive -->|"1: corridor length, corridor 2"| stop
+    drive -->|"1: front cliff, corridor 1"| turn
+    turn -->|"rotation complete<br/>corridor = 2"| drive
+    drive -->|"1: front cliff, corridor 2"| stop
     stop -->|"ε"| storage
     drive -->|"2: storage-wall bumper<br/>3: ledge cliff"| reverse
     reverse -->|"distance complete"| rotate
@@ -39,39 +39,38 @@ flowchart TB
 
 | State | Role |
 | --- | --- |
-| **Drive** | Drive forward along the corridor heading |
-| **Reverse** | Back a fixed distance after a wall bumper or ledge cliff |
-| **Rotate** | Fixed layout nudge after Reverse (A +10°, B −10°) |
-| **Corridor turn** | End of corridor 1: 90° onto corridor 2, latch new heading |
+| **Drive** | Drive forward until the front cliff |
+| **Reverse** | Back a fixed distance after a storage-wall bumper or ledge cliff |
+| **Rotate** | Turn `pathfind_recover_deg` after Reverse |
+| **Corridor turn** | End of corridor 1: turn onto corridor 2, latch new heading |
 | **Corridor stop** | End of corridor 2: stop, then leave Pathfind into Storage Turn |
 
-There are no Wall hit, Ledge hit, or Realign states. Wall and ledge events both enter **Reverse**.
+There are no Wall hit, Ledge hit, or Realign states. Wall bumper and ledge cliff both enter **Reverse**.
 
-## Action order
+## Check order
 
-Each State lists its Actions in priority order and the first true one fires (one Action per Tick). **B1 or wheeldrop → Fault** is first in every Pathfind State.
+Each Pathfind case in `Src/main.c` checks conditions in priority order and takes at most one transition per Kobuki packet. **B1 or wheeldrop → Fault** is first in every Pathfind state.
 
-| State | Actions, in order |
+| State | Checks, in order |
 | --- | --- |
-| Drive | fault → corridor length (corridor 1) → corridor length (corridor 2) → storage-wall bumper → ledge cliff → *do:* drive forward |
-| Reverse | fault → distance complete → *do:* reverse |
-| Rotate | fault → rotation complete → *do:* rotate |
-| Corridor turn | fault → rotation complete → *do:* rotate |
+| Drive | fault → front cliff (corridor 1 → Corridor turn, corridor 2 → Corridor stop) → storage-wall bumper → ledge cliff → drive forward |
+| Reverse | fault → distance complete → reverse |
+| Rotate | fault → rotation complete → rotate |
+| Corridor turn | fault → rotation complete → rotate |
 | Corridor stop | fault → ε to Storage Turn |
 
 ## Drive
 
-- **Do:** `Kobuki_Drive(FSM_PATHFIND_DRIVE_SPEED)` (100 mm/s).
-- **Corridor length:** signed wheel travel from `corridor_start_distance` ≥ `FSM_PATHFIND_CORRIDOR_MM` (1200 mm). Latched at Orient → Drive and Corridor turn → Drive; not re-latched on Rotate → Drive. Reverse subtracts from the total.
-- **Storage-wall bumper:** Layout A right (`0x01`), Layout B left (`0x04`). Ledge-side bumper is ignored.
-- **Ledge cliff:** Layout A left (`0x04`), Layout B right (`0x01`). Storage-wall-side cliff is ignored.
-- **Ignored in Drive:** centre cliff, ledge-side bumper, storage-wall-side cliff, centre bumper.
+- **Do:** `Kobuki_Drive(PATHFIND_DRIVE_SPEED)` (100 mm/s).
+- **Front cliff:** the centre cliff sensor sees the ledge. Corridor 1 goes to Corridor turn. Corridor 2 goes to Corridor stop.
+- **Storage-wall bumper:** `Corridor_Take_Wall_Hit`. Layout A left (`0x04`), Layout B right (`0x01`). It latches `pathfind_recover_deg` to `PATHFIND_ROTATE_A_DEG` or `PATHFIND_ROTATE_B_DEG` and enters Reverse. Ledge-side bumper is ignored.
+- **Ledge cliff:** `Corridor_Take_Ledge_Hit`. Layout A right (`0x01`), Layout B left (`0x04`). It latches the opposite nudge and enters Reverse. Storage-wall-side cliff is ignored.
 
 ## Reverse
 
 Entered from Drive when the storage-wall bumper or ledge cliff fires.
 
-- **Entry:** distance setpoint `−FSM_PATHFIND_REVERSE_MM` (−50 mm).
+- **Entry:** distance setpoint `−PATHFIND_REVERSE_MM` (−50 mm).
 - **Do:** `Kobuki_Drive_Distance` until `distance_complete`.
 - **Then:** always enter **Rotate**.
 - **Sensors:** bumper and cliff are ignored here. Only B1 or wheeldrop → Fault.
@@ -80,42 +79,33 @@ Entered from Drive when the storage-wall bumper or ledge cliff fires.
 
 Entered from Reverse when the back-off finishes.
 
-- **Entry:** fixed angle `FSM_PATHFIND_ROTATE_A_DEG` (+10) or `FSM_PATHFIND_ROTATE_B_DEG` (−10). Does not use `fsm_data.heading` or `Angle_Delta_Deg`.
+- **Entry:** `robot.pathfind_recover_deg`, latched in Drive when it entered Reverse. Does not use `robot.heading`.
 - **Do:** `Kobuki_Rotate_Angle` until `rotation_complete`.
 - **Then:** return to **Drive**. There is no matching +50 mm forward resume after Rotate.
-- **Sensors:** same as Reverse: bumper and cliff are ignored; B1 or wheeldrop → Fault.
+- **Sensors:** same as Reverse. Bumper and cliff are ignored. B1 or wheeldrop → Fault.
 
-If Drive still sees the wall bumper or ledge cliff on the next Tick after Rotate, it enters Reverse again (no “sensors must be clear” gate).
+If Drive still sees the wall bumper or ledge cliff on the next packet after Rotate, it enters Reverse again (no “sensors must be clear” gate).
 
 ## Corridor turn / stop
 
-- **Turn (corridor 1):** Layout A +90° (anticlockwise), Layout B −90° (clockwise). On exit it latches `heading`; the Action into Drive sets `corridor = 2` and latches `corridor_start_distance`.
-- **Stop (corridor 2):** stop once on entry, then straight into Storage Turn on the next Tick.
+- **Turn (corridor 1):** Layout A +90° (anticlockwise), Layout B −100° (clockwise). On leaving it latches `heading`, and completing it sets `corridor = 2`.
+- **Stop (corridor 2):** stop once on entry, then straight into Storage Turn on the next packet.
 
 ## Constants
 
 | Macro | Value | Used by |
 | --- | --- | --- |
-| `FSM_PATHFIND_DRIVE_SPEED` | 100 | Drive |
-| `FSM_PATHFIND_CORRIDOR_MM` | 1200 | Drive (end of corridor) |
-| `FSM_PATHFIND_REVERSE_MM` | 50 | Reverse |
-| `FSM_PATHFIND_ROTATE_A_DEG` / `_B_DEG` | +10 / −10 | Rotate |
-| `FSM_PATHFIND_CORNER_A_DEG` / `_B_DEG` | +90 / −90 | Corridor turn |
+| `PATHFIND_DRIVE_SPEED` | 100 | Drive |
+| `PATHFIND_REVERSE_MM` | 50 | Reverse |
+| `PATHFIND_ROTATE_A_DEG` / `_B_DEG` | −5 / +5 | wall hit latches into `pathfind_recover_deg` (a ledge cliff latches the opposite) |
+| `PATHFIND_CORNER_A_DEG` / `_B_DEG` | +90 / −100 | Corridor turn |
 
-Angles are in degrees, + = anticlockwise (`Kobuki_Rotate`: +ve is CCW). All values are tunable in `Src/FSM_state/fsm_states.h`.
+Angles are in degrees, + = anticlockwise (`Kobuki_Rotate`: +ve is CCW). All values are tunable in `Src/Helper/helper.h`.
 
 ## Faults
 
-One red edge for the whole Pathfind region: **B1 or wheeldrop → Fault**. No other Pathfind-specific faults. Fault stops the motors and returns to Idle on the next Tick.
+One red edge for the whole Pathfind region: **B1 or wheeldrop → Fault**. No other Pathfind-specific faults. Fault stops the motors and returns to Idle on the next packet.
 
 ## Code
 
-| State | File |
-| --- | --- |
-| Drive | `Src/FSM_state/states/state_pathfind_drive.c` |
-| Reverse | `Src/FSM_state/states/state_pathfind_reverse.c` |
-| Rotate | `Src/FSM_state/states/state_pathfind_rotate.c` |
-| Corridor turn | `Src/FSM_state/states/state_pathfind_corridor_turn.c` |
-| Corridor stop | `Src/FSM_state/states/state_pathfind_corridor_stop.c` |
-| Fault Actions | `Src/FSM_state/states/action_fault.c` |
-| Ids / macros | `Src/FSM_state/fsm_states.h` |
+Pathfind lives in the `ST_DRIVE`, `ST_REVERSE`, `ST_ROTATE`, `ST_CORRIDOR_TURN` and `ST_CORRIDOR_STOP` cases of `Src/main.c`. Tunables and `robot` fields are in `Src/Helper/helper.h`. Entry setpoints run in `change_to()` for that state.

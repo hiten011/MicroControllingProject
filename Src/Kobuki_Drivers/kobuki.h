@@ -1,11 +1,13 @@
 #ifndef KOBUKI_H
 #define KOBUKI_H
 
+#include <stdbool.h>
 #include <stdint.h>
 
 // Kobuki structure
 typedef struct {
     uint8_t cliff;
+    uint16_t cliff_raw[3];  // right, centre, left PSD readings
     uint8_t bumper;
     uint8_t wheeldrop;
     uint8_t button;
@@ -17,7 +19,7 @@ typedef struct {
 
 typedef enum { OFF, RED, GREEN, YELLOW } Kobuki_LED_Enum;
 
-#define SIZE_FEEDBACK 26
+#define SIZE_FEEDBACK 39  // up to the end of the 0x05 cliff sub-payload
 
 // Buffer defintions for x payload
 #define BUMPER     4
@@ -28,6 +30,12 @@ typedef enum { OFF, RED, GREEN, YELLOW } Kobuki_LED_Enum;
 #define BUTTON     13
 #define ANGLE_LSB  24  // only needs 1 wheel
 #define ANGLE_MSB  25
+#define CLIFF_ID   31  // sub-payload header, 0x05
+#define CLIFF_RAW  33  // right, centre, left as uint16 LSB first
+
+// A raw cliff reading under this counts as a ledge. Lower is further from the floor.
+// Calibrate on the real arena: read cliff_raw over the floor and over the ledge, set between them.
+#define CLIFF_RAW_LIMIT 1100U
 
 // Truncated speed
 #define SPEED_LIMIT  (int16_t)150   // mm / s
@@ -50,8 +58,10 @@ void Kobuki_Rotate_Angle_Setpoint(int16_t current_angle_tick, int16_t rot_angle_
 void Kobuki_Rotate_Angle(int16_t current_angle_tick);
 void Kobuki_Drive_Distance_Setpoint(uint16_t current_distance_tick, int16_t distance);
 void Kobuki_Drive_Distance(uint16_t current_distance_tick);
-// Signed wheel travel in mm from start_tick to current_tick (uint16 wrap-aware).
+// Signed left-wheel travel in mm. The int16_t wrap is valid inside ±32767 ticks.
 int32_t Kobuki_Distance_Delta_Mm(uint16_t start_tick, uint16_t current_tick);
+// True when any cliff sensor in side_mask (right 0x01, centre 0x02, left 0x04) sees the ledge.
+bool Kobuki_IsCliffDetected(const Kobuki_Typedef *kobuki, uint8_t side_mask);
 
 // kobuki update LEDs
 void Kobuki_Update_LEDs(Kobuki_LED_Enum led_1_colour, Kobuki_LED_Enum led_2_colour);

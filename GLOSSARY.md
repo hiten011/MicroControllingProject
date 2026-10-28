@@ -26,7 +26,7 @@ The enclosed bay the parcel is delivered into, reached through a diagonal entran
 _Avoid_: the unit, freezer, storage (when the unit itself is meant)
 
 **Storage wall**:
-The outer wall of the storage unit that runs alongside the corridors. In Layout A it is on the AMU's right and the ledge on its left; Layout B is the mirror image.
+The outer wall of the storage unit that runs alongside the corridors. With Orient A = −90° / B = +90°, Layout A has it on the AMU's left and the ledge on its right; Layout B is the mirror image.
 _Avoid_: unit wall, side wall
 
 **Entrance**:
@@ -39,50 +39,30 @@ _Avoid_: drop point, bay
 
 ### Finding the layout
 
-**Search**:
-The phase in which the AMU looks for a bollard so that it can learn the Layout. It ends when a Layout is learned or when the AMU gives up.
+**Search** (phase):
+The phase in which the AMU turns on the spot to find a bollard and learn the Layout. It spans Search and Identify, and ends when Identify stores Layout A or Layout B and enters Orient. If the AMU turns a full circle and finds nothing, it gives up into Fault with LED 1 green.
 _Avoid_: Scan
 
-**Detect**:
-One ultrasonic reading taken while the AMU is stationary, recording whether an object is within detection range.
-_Avoid_: Ping, sample
+**Search** (State):
+The State in which the AMU turns anticlockwise, reading the ultrasonic every Tick, until a reading is within detection range. It gives up after a full turn.
+_Avoid_: Spin, Scan
 
 **Detection**:
-A Detect reading in which an object is within detection range. The first Detection ends the Search and fixes the Layout.
+A reading within detection range (750 mm). Search acts on Detections.
 _Avoid_: Hit
 
-**Spin**:
-Turning the AMU on the spot by one Step between two Detect readings.
-_Avoid_: Move (already means driving a distance), Turn (Storage), Rotate (Pathfind)
+**Identify**:
+The State in which the AMU stops on the first Detection and compares that reading with the Layout split: under it the Layout is B (the nearer bollard B1), otherwise A (A1). It lights LED 1 red for A or yellow for B, then enters Orient. There is no centring on the bollard.
+_Avoid_: Detect, Classify, Ping, sample
 
-**Step**:
-The fixed angle the AMU turns in one Spin.
-_Avoid_: Increment
+**Layout split**:
+The range in millimetres (`LAYOUT_B_MAX_MM`) that separates Layout B from Layout A, compared with the first Detection. It is a calibration value, measured with the real sensor in place; it needs re-measuring if the sensor moves.
+_Avoid_: threshold, LAYOUT_SPLIT, band
 
-**Sweep**:
-One full 360 degree revolution of Steps without a Detection. The Search gives up after a fixed number of Sweeps.
-_Avoid_: Lap, rotation
-
-### Aligning
-
-**Align**:
-The State in which the AMU turns from the first-detection heading to the centre heading.
-_Avoid_: centre-up, correct heading
-
-**Centre heading**:
-The heading at which the AMU faces the middle of the blocking bollard (A1 in Layout A, B1 in Layout B).
-_Avoid_: target heading, centreline, theta target
-
-**First-detection heading**:
-The heading at which SEARCH stops, with the blocking bollard just inside the edge of the sensor's beam.
-_Avoid_: stop heading, entry edge
-
-**Alignment offset**:
-The fixed angle, anticlockwise, from the first-detection heading to the centre heading.
-_Avoid_: correction angle
+### Facing the corridor
 
 **Orient**:
-The State in which the AMU turns from the centre heading to face the first corridor.
+The State in which the AMU turns from wherever Search stopped to face the first corridor.
 _Avoid_: turn-to-corridor, face-corridor
 
 ### Driving to the storage unit
@@ -93,30 +73,30 @@ _Avoid_: path, lane, leg
 
 **Corridor heading**:
 The direction the AMU holds while driving a corridor. It is set afresh at the start of each corridor.
-_Avoid_: bearing, heading (alone, which also names the Centre heading)
+_Avoid_: bearing, heading (alone)
 
 **Pathfind**:
-The phase in which the AMU drives the first corridor and then the second, keeping clear of the storage wall and the ledge. It spans Drive, Reverse, Rotate, Corridor turn and Corridor stop.
+The phase in which the AMU drives the first corridor and then the second, backs off a storage-wall bumper, and recovers from a ledge cliff. It spans Drive, Reverse, Rotate, Corridor turn and Corridor stop. Each corridor ends on the front cliff.
 _Avoid_: navigate, route-follow, PATHFIND 1 / PATHFIND 2 (it is one phase run twice)
 
-**Corridor length**:
-The fixed distance the AMU must travel along each corridor before that corridor ends. Progress is net forward travel from the start of the corridor (reversals count against it).
-_Avoid_: path length, segment length
+**Front cliff**:
+The cliff sensor at the front centre of the AMU seeing the ledge ahead. It ends a corridor: the first in Corridor turn, the second in Corridor stop.
+_Avoid_: centre cliff, edge ahead
 
 **Drive**:
-The State in which the AMU drives forward along the current corridor until the Corridor length is reached, or the storage wall or the ledge intervenes. A storage-wall bumper or ledge cliff sends it into Reverse; reaching the Corridor length ends the corridor.
-_Avoid_: PATHFIND_DRIVE (code id), cruise
+The State in which the AMU drives forward along the current corridor until the front cliff. A storage-wall bumper or a ledge cliff sends it into Reverse.
+_Avoid_: cruise
 
 **Reverse**:
 The State in which the AMU backs a fixed distance clear of the storage wall or the ledge after that side's bumper or cliff fires during Drive, then always enters Rotate.
-_Avoid_: Realign, back-off, PATHFIND_REVERSE (code id)
+_Avoid_: Realign, back-off
 
 **Rotate**:
-The State in which the AMU turns a fixed angle after Reverse (Layout A anticlockwise, Layout B clockwise), then returns to Drive with no forward resume. It does not restore the corridor heading.
-_Avoid_: Realign, Spin (Search), Turn (Storage), PATHFIND_ROTATE (code id)
+The State in which the AMU turns the nudge latched in Drive (`pathfind_recover_deg`), away from the storage wall or the ledge, then returns to Drive with no forward resume. It does not restore the corridor heading.
+_Avoid_: Realign, Turn (Storage)
 
 **Corridor turn**:
-The State at the end of the first corridor: the AMU turns 90° onto the second corridor and latches a new corridor heading.
+The State at the end of the first corridor: the AMU turns on the spot onto the second corridor and latches a new corridor heading.
 _Avoid_: Front-cliff turn, corner turn, mid-route turn
 
 **Corridor stop**:
@@ -129,7 +109,7 @@ _Avoid_: STORAGE when the storage unit itself is meant
 
 **Turn** (Storage):
 The State in which the AMU turns on the spot from the second-corridor heading to face the Entrance.
-_Avoid_: face-entrance, Rotate (Pathfind), STORAGE_TURN (code id)
+_Avoid_: face-entrance, Rotate (Pathfind)
 
 **Drive-in**:
 The State in which the AMU drives a fixed distance through the Entrance into the storage unit. Any bumper ends it early, in Deposit.
@@ -142,15 +122,15 @@ _Avoid_: DEPOSIT (code id), drop-off (the place is Deposit location)
 ### Running the FSM
 
 **Idle**:
-The State in which the AMU holds still until B0 (start) is pressed. It is the first State, and the State every run returns to. Leaving it forgets the last Search.
+The State in which the AMU holds still until B0 (start) is pressed. It is the first State, and the State every run returns to. Leaving it forgets the last Search and starts a new one in Search.
 _Avoid_: Standby, Ready, IDLE (code id)
 
 **Fault**:
-The State the AMU stops in when it must not go on: B1 pressed, a wheel dropped, an unexpected bumper or cliff (which ones depends on the State), or a Search that gives up. It stops the motors, then returns to Idle on the next Tick. The diagram calls it STOP / FAULT.
+The State the AMU stops in when it must not go on: B1 pressed, a wheel dropped, or an unexpected bumper or cliff (which ones depends on the State). It stops the motors, then returns to Idle on the next Tick. The diagram calls it STOP / FAULT.
 _Avoid_: Error, Stop, E-stop
 
 **State**:
-One box of the FSM diagram, named in capitals (SEARCH, DETECT, SPIN). It holds an ordered list of Actions, and one phase such as Search can span several States.
+One box of the FSM diagram, named in capitals (SEARCH, IDENTIFY, ORIENT). In the firmware it is one arm of the switch in Src/main.c. One phase such as Search can span several States.
 _Avoid_: Mode, Event
 
 **Action**:
@@ -159,4 +139,4 @@ _Avoid_: Event, Transition, Rule, Trigger
 
 **Tick**:
 One pass of the FSM, in which the current State's Actions are checked once. There is one Tick per received Kobuki packet.
-_Avoid_: Step (already the Spin angle), Cycle, Loop
+_Avoid_: Step, Cycle, Loop
