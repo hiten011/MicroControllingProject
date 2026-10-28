@@ -2,72 +2,34 @@
 
 RobotData robot;
 
-Layout Layout_From_Range(uint16_t closest_mm)
+bool Fault_B1_Wheeldrop(void)
 {
-    if (closest_mm < LAYOUT_B_MAX_MM) {
+    return (robot.kobuki.button & BUTTON_B1) != 0 || robot.kobuki.wheeldrop != 0;
+}
+
+bool Fault_Any(void)
+{
+    return Fault_B1_Wheeldrop() || robot.kobuki.bumper != 0 || Kobuki_IsCliffDetected(&robot.kobuki, SIDE_ANY);
+}
+
+Layout Layout_From_Range(uint16_t range_mm)
+{
+    if (range_mm < LAYOUT_B_MAX_MM) {
         return LAYOUT_B;
     }
     return LAYOUT_A;
 }
 
-void Robot_Start(int16_t angle_tick)
+int16_t Layout_Pick(int16_t a_deg, int16_t b_deg)
 {
-    robot.layout = LAYOUT_NONE;
-    robot.object.detected = 0;
-    robot.heading = 0;
-    robot.corridor = 0;
-    robot.corridor_start_tick = 0;
+    return (robot.layout == LAYOUT_A) ? a_deg : b_deg;
+}
+
+void Scan_Start(int16_t angle_tick)
+{
     robot.scan_prev_angle = angle_tick;
     robot.scan_ticks = 0;
     robot.scan_deg = 0;
-    robot.first_seen_deg = NO_ANGLE;
-    robot.last_seen_deg = 0;
-    robot.closest_mm = ULTRASONIC_DETECT_RANGE_MM;
-    robot.edge_mm = ULTRASONIC_DETECT_RANGE_MM;
-    robot.edge_start_deg = NO_ANGLE;
-    robot.edge_end_deg = -NO_ANGLE;
-    robot.centre_deg = 0;
-}
-
-void Corridor_Begin(uint8_t index)
-{
-    robot.corridor = index;
-    robot.corridor_start_tick = robot.kobuki.distance;
-}
-
-int16_t Corridor_Length_Mm(void)
-{
-    if (robot.layout == LAYOUT_A) {
-        return (robot.corridor == 1) ? PATHFIND_CORRIDOR_1_A_MM
-                                      : PATHFIND_CORRIDOR_2_A_MM;
-    }
-    return (robot.corridor == 1) ? PATHFIND_CORRIDOR_1_B_MM
-                                 : PATHFIND_CORRIDOR_2_B_MM;
-}
-
-bool Corridor_Take_Wall_Hit(uint8_t bumper)
-{
-    uint8_t wall_mask = (robot.layout == LAYOUT_A) ? SIDE_LEFT : SIDE_RIGHT;
-
-    if ((bumper & wall_mask) == 0) {
-        return false;
-    }
-    robot.pathfind_recover_deg = (robot.layout == LAYOUT_A) ? PATHFIND_ROTATE_A_DEG
-                                                            : PATHFIND_ROTATE_B_DEG;
-    return true;
-}
-
-bool Corridor_Take_Ledge_Hit(const Kobuki_Typedef *kobuki)
-{
-    uint8_t ledge_mask = (robot.layout == LAYOUT_A) ? SIDE_RIGHT : SIDE_LEFT;
-    int16_t wall_nudge = (robot.layout == LAYOUT_A) ? PATHFIND_ROTATE_A_DEG
-                                                    : PATHFIND_ROTATE_B_DEG;
-
-    if (!Kobuki_IsCliffDetected(kobuki, ledge_mask)) {
-        return false;
-    }
-    robot.pathfind_recover_deg = (int16_t)(-wall_nudge);
-    return true;
 }
 
 void Scan_Update_Turn(int16_t angle_tick)
@@ -87,4 +49,37 @@ void Scan_Update_Turn(int16_t angle_tick)
     } else {
         robot.scan_deg = (int16_t)((robot.scan_ticks - 50) / 100);
     }
+}
+
+void Scan_Sample(void)
+{
+    Scan_Update_Turn(robot.kobuki.angle);
+    Ultrasonic_Detect(&robot.object);
+}
+
+bool Scan_Gave_Up(void)
+{
+    return robot.scan_deg >= SCAN_FULL_DEG;
+}
+
+bool Corridor_Take_Wall_Hit(uint8_t bumper)
+{
+    uint8_t wall_mask = (robot.layout == LAYOUT_A) ? SIDE_LEFT : SIDE_RIGHT;
+
+    if ((bumper & wall_mask) == 0) {
+        return false;
+    }
+    robot.pathfind_recover_deg = Layout_Pick(PATHFIND_ROTATE_A_DEG, PATHFIND_ROTATE_B_DEG);
+    return true;
+}
+
+bool Corridor_Take_Ledge_Hit(const Kobuki_Typedef *kobuki)
+{
+    uint8_t ledge_mask = (robot.layout == LAYOUT_A) ? SIDE_RIGHT : SIDE_LEFT;
+
+    if (!Kobuki_IsCliffDetected(kobuki, ledge_mask)) {
+        return false;
+    }
+    robot.pathfind_recover_deg = (int16_t)(-Layout_Pick(PATHFIND_ROTATE_A_DEG, PATHFIND_ROTATE_B_DEG));
+    return true;
 }
