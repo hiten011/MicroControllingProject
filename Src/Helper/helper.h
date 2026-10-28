@@ -79,13 +79,12 @@ Layout Layout_From_Range(uint16_t closest_mm);
 // Reset the layout, object, heading, corridor and scan state. Call when a run starts.
 void Robot_Start(int16_t angle_tick);
 
-// Arm corridor 1 or 2 and latch the left-wheel tick. Recovery must not call this.
+// Recovery must not call this. Returning to Drive keeps the original start tick.
 void Corridor_Begin(uint8_t index);
 
-// Figure-2 length for robot.layout and robot.corridor, in mm.
 int16_t Corridor_Length_Mm(void);
 
-// True only for the storage-wall bumper. Latches pathfind_recover_deg to the wall nudge.
+// A hit also latches pathfind_recover_deg. A miss leaves that field alone.
 bool Corridor_Wall_Hit(uint8_t bumper);
 
 // Add the turn since the last call to scan_deg. Gyro ticks are 0.01 deg and wrap at +-18000.
