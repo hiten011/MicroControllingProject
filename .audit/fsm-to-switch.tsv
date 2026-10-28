@@ -1,0 +1,18 @@
+ts	phase	decision	why	evidence	result
+2026-10-27T05:51:49Z	start	opened fsm-to-switch decision log for this run	figure-it-out requires an audit trail for this cross-cutting rewrite	agent run on MicroControllingProject	open
+2026-10-27T05:51:49Z	frame	predicate equals sim suite scores and event traces match pre-change baseline under wine	prove-it-works needs a real artifact pin before deleting the FSM engine	sim/README.md suite mode	open
+2026-10-27T05:53:55Z	frame	switched pin to mingw rebuild of current main, not the committed kobuki_sim.exe	committed PE disagreed with mingw rebuild; same-toolchain before/after is the fair equivalence gate	/opt/cursor/artifacts/baseline_mingw	open
+2026-10-27T05:54:44Z	design	target shape is State enum + switch in main.c, shared data/constants/reads in Helper, delete Src/FSM and Src/FSM_state	user asked for switch-on-state; keep domain states, drop the action-table engine (laziness, minimize reader load)	README.md Src layout	open
+2026-10-27T05:58:38Z	verify	mingw wine traces match baseline on 4 layouts + B1 + lift after rewrite and after clang-format	prove-it-works equivalence gate on the real sim artifact	/opt/cursor/artifacts/equivalence.txt and after_format	tests green
+2026-10-27T05:59:59Z	verify	formatted robot_control.c so clang-format CI passes on the full tracked Src set	revert of its format left main red on Lint	commit a393b86	tests green
+2026-10-27T06:00:16Z	deslop	removed two restating comments in main.c before review	no-comments / minimize reader load	commit pending after push	open
+2026-10-27T06:02:02Z	fix	run Spin and Corridor-turn exit work on fault leaves too	how explorers: exit runs on every leave, not only success	Src/main.c spin_account_step and corridor-turn fault latch	tests green
+2026-10-27T06:05:57Z	audit	pin proves early-path equivalence only; runs fall before corridor stop and storage	cross-review: layout wine traces never enter section 3 or storage	baseline_mingw layout*.txt outcomes	open
+2026-10-27T06:05:57Z	audit	kept exit-on-fault for Spin and Corridor turn anyway	how explorers require exit on every leave; heading unread and sweeps clear on next IDLE exit so observable effect is nil today	commit 98463b6	open
+2026-10-27T06:05:57Z	audit	mingw baseline swap was correct because committed kobuki_sim.exe predates many Src commits	cross-review rebuilt 1ea49e3 and matched baseline_mingw aside from CRLF	sim/kobuki_sim.exe last content commit 5e2b968	open
+2026-10-27T06:05:57Z	audit	remote force-pushed 354a88b as author hiten; this run rebased follow-ups onto it	not our force-push; integrated by rebase	git log origin/cursor/switch-states-no-fsm-da35	open
+2026-10-27T06:05:57Z	verify	ARM Debug link on tip 98463b6 produced main.elf	cross-review noted earlier arm_build.log was stale	/opt/cursor/artifacts/arm_build_tip.log	tests green
+2026-10-27T06:05:57Z	docs	updated amu_fsm.drawio path text to main.c and Helper; preview PNG not re-exported	cross-review stale diagram pointers	docs/amu_fsm.drawio	open
+2026-10-27T06:07:52Z	no-comments	accepted sicko deletions already in 5bc86c4; extracted corridor_turn_latch_heading and wait_next_kobuki_packet; restored CMakeCache and clang-format pin notes	no-comments step 4 on MUST KILL reshape flags; keep-list restore for tooling gotchas	Src/main.c CMakeLists.txt lint.yml	tests green
+2026-10-27T06:07:52Z	no-comments	rejected renaming SPIN_STEP_DEG LAYOUT_* ALIGNMENT_OFFSET_DEG; left Kobuki_Read driver name and wrapped the call site instead	comments already gone; driver rename out of scope	wait_next_kobuki_packet in main.c	open
+2026-10-27T06:09:18Z	verify	all 5 CI checks green on tip 3d74a84	Phase E predicate for merge-ready structure change	github CI subscription on cursor/switch-states-no-fsm-da35	tests green

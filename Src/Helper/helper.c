@@ -1,30 +1,85 @@
 #include "helper.h"
 
-FSM_Layout Layout_From_Range(uint16_t range_mm)
+RobotData robot;
+
+bool Fault_B1_Wheeldrop(void)
 {
-    if (range_mm > FSM_LAYOUT_SPLIT_MM && range_mm <= FSM_LAYOUT_A_MAX_MM) {
-        return FSM_LAYOUT_A;
-    }
-
-    if (range_mm >= FSM_LAYOUT_B_MIN_MM && range_mm <= FSM_LAYOUT_SPLIT_MM) {
-        return FSM_LAYOUT_B;
-    }
-
-    return FSM_LAYOUT_NONE;
+    return (robot.kobuki.button & BUTTON_B1) != 0 || robot.kobuki.wheeldrop != 0;
 }
 
-int16_t Angle_Delta_Deg(int16_t from_angle_tick, int16_t to_angle_tick)
+bool Fault_Any(void)
 {
-    int32_t delta = (int32_t)to_angle_tick - (int32_t)from_angle_tick;
+    return Fault_B1_Wheeldrop() || robot.kobuki.bumper != 0 || Kobuki_IsCliffDetected(&robot.kobuki, SIDE_ANY);
+}
 
-    // Take the short way round when the reading wrapped.
-    if (delta > FSM_ANGLE_TICKS_HALF_TURN) {
-        delta -= FSM_ANGLE_TICKS_FULL_TURN;
-    } else if (delta < -FSM_ANGLE_TICKS_HALF_TURN) {
-        delta += FSM_ANGLE_TICKS_FULL_TURN;
+Layout Layout_From_Range(uint16_t range_mm)
+{
+    if (range_mm < LAYOUT_B_MAX_MM) {
+        return LAYOUT_B;
     }
+    return LAYOUT_A;
+}
 
-    // Round to the nearest degree so the error of each Step does not add up in one direction.
-    int32_t half_deg = FSM_ANGLE_TICKS_PER_DEG / 2;
-    return (int16_t)((delta >= 0 ? delta + half_deg : delta - half_deg) / FSM_ANGLE_TICKS_PER_DEG);
+int16_t Layout_Pick(int16_t a_deg, int16_t b_deg)
+{
+    return (robot.layout == LAYOUT_A) ? a_deg : b_deg;
+}
+
+void Scan_Start(int16_t angle_tick)
+{
+    robot.scan_prev_angle = angle_tick;
+    robot.scan_ticks = 0;
+    robot.scan_deg = 0;
+}
+
+void Scan_Update_Turn(int16_t angle_tick)
+{
+    int32_t diff = (int32_t)angle_tick - robot.scan_prev_angle;
+
+    if (diff > 18000) {
+        diff -= 36000;
+    } else if (diff < -18000) {
+        diff += 36000;
+    }
+    robot.scan_prev_angle = angle_tick;
+    robot.scan_ticks += diff;
+
+    if (robot.scan_ticks >= 0) {
+        robot.scan_deg = (int16_t)((robot.scan_ticks + 50) / 100);
+    } else {
+        robot.scan_deg = (int16_t)((robot.scan_ticks - 50) / 100);
+    }
+}
+
+void Scan_Sample(void)
+{
+    Scan_Update_Turn(robot.kobuki.angle);
+    Ultrasonic_Detect(&robot.object);
+}
+
+bool Scan_Gave_Up(void)
+{
+    return robot.scan_deg >= SCAN_FULL_DEG;
+}
+
+bool Corridor_Take_Wall_Hit(uint8_t bumper)
+{
+    uint8_t wall_mask = (robot.layout == LAYOUT_A) ? SIDE_LEFT : SIDE_RIGHT;
+
+    if ((bumper & wall_mask) == 0) {
+        return false;
+    }
+    robot.pathfind_recover_deg = Layout_Pick(PATHFIND_ROTATE_A_DEG, PATHFIND_ROTATE_B_DEG);
+    return true;
+}
+
+bool Corridor_Take_Ledge_Hit(const Kobuki_Typedef *kobuki)
+{
+    uint8_t ledge_mask = (robot.layout == LAYOUT_A) ? SIDE_RIGHT : SIDE_LEFT;
+
+    if (!Kobuki_IsCliffDetected(kobuki, ledge_mask)) {
+        return false;
+    }
+    robot.pathfind_recover_deg = (int16_t)(-Layout_Pick(PATHFIND_ROTATE_A_DEG, PATHFIND_ROTATE_B_DEG));
+    return true;
 }

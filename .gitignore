@@ -4,4 +4,24 @@ mx.scratch
 .clangd
 .vscode
 .settings
-sim/
+sim/obj/
+sim/obj_dbg/
+sim/kobuki_sim
+sim/kobuki_sim.exe
+sim/kobuki_sim_dbg*
+sim/sim_out/
+sim_out/
+sim_ci_out/
+
+# Agent verification evidence (kept locally; do not commit)
+verify-artifacts/
+
+# Downloaded by verify-amu-fault-stop/helpers/run-check.sh
+.cursor/skills/verify-amu-fault-stop/helpers/tla2tools.jar
+.cursor/skills/verify-amu-fault-stop/formal/states/
+*.toolbox/
+sim/kobuki_sim_mingw.exe
+sim/obj_linux/
+sim/obj_mingw/
+sim_recover_check/
+sim_front_cliff_out/

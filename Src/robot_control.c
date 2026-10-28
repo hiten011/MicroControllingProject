@@ -2,11 +2,7 @@
 #include "adc.h"
 #include "ultrasonic.h"
 
-typedef enum {
-    ROBOT_NONE,
-    ROBOT_LINEAR,
-    ROBOT_TURN
-} Robot_Command;
+typedef enum { ROBOT_NONE, ROBOT_LINEAR, ROBOT_TURN } Robot_Command;
 
 static Robot_Command current_command = ROBOT_NONE;
 static bool moving = false;
@@ -102,29 +98,18 @@ Robot_Status Robot_Update(Kobuki_Typedef *kobuki)
         if (command_pending) {
 
             if (current_command == ROBOT_LINEAR) {
-                Kobuki_Drive_Distance_Setpoint(
-                    kobuki->distance,
-                    target_value
-                );
-            }
-            else if (current_command == ROBOT_TURN) {
-                Kobuki_Rotate_Angle_Setpoint(
-                    kobuki->angle,
-                    target_value
-                );
+                Kobuki_Drive_Distance_Setpoint(kobuki->distance, target_value);
+            } else if (current_command == ROBOT_TURN) {
+                Kobuki_Rotate_Angle_Setpoint(kobuki->angle, target_value);
             }
 
             command_pending = false;
         }
 
         // Check whether movement is complete.
-        else if (
-            (current_command == ROBOT_LINEAR &&
-             kobuki->distance_complete) ||
+        else if ((current_command == ROBOT_LINEAR && kobuki->distance_complete) ||
 
-            (current_command == ROBOT_TURN &&
-             kobuki->rotation_complete)
-        ) {
+                 (current_command == ROBOT_TURN && kobuki->rotation_complete)) {
             Robot_Stop();
         }
 
@@ -137,16 +122,11 @@ Robot_Status Robot_Update(Kobuki_Typedef *kobuki)
         else if (current_command == ROBOT_TURN) {
             Kobuki_Rotate_Angle(kobuki->angle);
         }
-    }
-    else {
+    } else {
         Kobuki_Drive(STOP);
     }
 
-    Robot_Status status = {
-        .moving = moving,
-        .bumper_hit = bumper_latched,
-        .bumper_bits = kobuki->bumper
-    };
+    Robot_Status status = {.moving = moving, .bumper_hit = bumper_latched, .bumper_bits = kobuki->bumper};
 
     return status;
 }
