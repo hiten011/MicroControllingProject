@@ -29,7 +29,7 @@ A change touches any of:
 
 | Model piece | Code |
 | --- | --- |
-| `Active` + stop → `Fault` + `Stopped` | `action_fault.c` conditions; first Action in Search/Detect/Spin/Orient/Pathfind/Storage States |
+| `Active` + stop → `Fault` + `Stopped` | `action_fault.c` conditions; first Action in Search/Track/Edge scan/Detect/Orient/Pathfind/Storage States |
 | `Fault` → `Idle` + `Stopped` | `state_fault.c` (`fault_init` → `Kobuki_Drive(STOP)`, then `fault_to_idle`) |
 | One Action per Tick | `fsm.c` `State_Run` |
 | Idle ignores B1→Fault | `state_idle.c` (only B0→Search and hold still) |

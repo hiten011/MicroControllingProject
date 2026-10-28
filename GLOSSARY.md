@@ -39,51 +39,51 @@ _Avoid_: drop point, bay
 
 ### Finding the layout
 
-**Search**:
-The phase in which the AMU looks for a bollard so that it can learn the Layout. It ends when SEARCH stores Layout A or Layout B and enters Align. A Detection whose Layout range band is LAYOUT_NONE is ignored and Search keeps spinning.
-_Avoid_: Scan
+**Search** (phase):
+The phase in which the AMU turns on the spot to find a bollard and learn the Layout. It spans Clear, Search, Track, Edge scan and Detect, and ends when Detect stores Layout A or Layout B and enters Align. If the scan finds nothing, or never loses the object, it gives up into Fault with LED 1 green.
+_Avoid_: Scan (alone, which also names the turning in Edge scan)
 
-**Detect**:
-One ultrasonic reading taken while the AMU is stationary, recording whether an object is within detection range.
-_Avoid_: Ping, sample
+**Scan angle**:
+The net turn in degrees since B0, anticlockwise positive, summed from gyro changes so it does not wrap at 180°. Every scan bearing (first seen, last seen, edges, centre) is a Scan angle.
+_Avoid_: bearing, heading (alone, which also names the Centre heading)
+
+**Clear**:
+The State in which the AMU turns clockwise until the ultrasonic reads nothing within detection range, so Search never starts on the bollard. It gives up after one full turn.
+_Avoid_: Clear start, CLEAR_START (friend's code id)
+
+**Search** (State):
+The State in which the AMU turns anticlockwise, reading the ultrasonic every Tick, until a reading is within detection range. It gives up after a full turn plus the give-up angle.
+_Avoid_: Spin, Scan
+
+**Track**:
+The State in which the AMU keeps turning anticlockwise over the object, recording the closest reading and the Scan angle it was last seen at. It ends once the object has been lost for the lost angle, which means the AMU is just past it.
+_Avoid_: Follow, Spin
+
+**Edge scan**:
+The State in which the AMU turns slowly clockwise back across the bollard. Readings within the edge band of the closest reading mark where the bollard starts and ends, and the middle of those two Scan angles is the Centre heading's Scan angle. It gives up if it passes back beyond where the object was first seen.
+_Avoid_: Detailed scan, Sweep
 
 **Detection**:
-A Detect reading in which an object is within detection range. SEARCH stores the Layout and enters Align when the Layout range band class is A or B. When the class is LAYOUT_NONE, Search keeps rotating and leaves the stored Layout unchanged.
+A reading within detection range (750 mm). Search, Track and Edge scan act on Detections.
 _Avoid_: Hit
 
-**Layout range band**:
-An inclusive millimetre window of ultrasonic range that classifies a Detection as Layout A or Layout B. A reading in neither band, or in both, is LAYOUT_NONE and does not end Search.
-_Avoid_: split, threshold, LAYOUT_SPLIT
+**Detect**:
+The State in which the closest reading of the Edge scan is compared with the Layout split: under it the Layout is B (the nearer bollard B1), otherwise A (A1). It lights LED 1 red for A or yellow for B, then enters Align.
+_Avoid_: Classify, Ping, sample
 
-**Spin**:
-Turning the AMU on the spot by one Step between two Detect readings.
-_Avoid_: Move (already means driving a distance), Turn (Storage), Rotate (Pathfind)
-
-**Step**:
-The fixed angle the AMU turns in one Spin.
-_Avoid_: Increment
-
-**Sweep**:
-One full 360 degree revolution of Steps. The Search no longer counts Sweeps or gives up on a Sweep limit; DETECT and SPIN keep running until a Detection.
-_Avoid_: Lap, rotation
+**Layout split**:
+The range in millimetres (`LAYOUT_B_MAX_MM`) that separates Layout B from Layout A. It is a calibration value, measured with the real sensor in place; it needs re-measuring if the sensor moves.
+_Avoid_: threshold, LAYOUT_SPLIT, band
 
 ### Aligning
 
 **Align**:
-The State in which the AMU turns from the first-detection heading to the centre heading.
+The State in which the AMU turns from where Edge scan stopped to the centre heading.
 _Avoid_: centre-up, correct heading
 
 **Centre heading**:
 The heading at which the AMU faces the middle of the blocking bollard (A1 in Layout A, B1 in Layout B).
 _Avoid_: target heading, centreline, theta target
-
-**First-detection heading**:
-The heading at which SEARCH stops, with the blocking bollard just inside the edge of the sensor's beam.
-_Avoid_: stop heading, entry edge
-
-**Alignment offset**:
-The fixed angle, anticlockwise, from the first-detection heading to the centre heading.
-_Avoid_: correction angle
 
 **Orient**:
 The State in which the AMU turns from the centre heading to face the first corridor.
@@ -117,7 +117,7 @@ _Avoid_: Realign, back-off, PATHFIND_REVERSE (code id)
 
 **Rotate**:
 The State in which the AMU turns the nudge latched at Reverse entry (`pathfind_recover_deg`), away from the storage wall or the ledge that was hit, then returns to Drive with no forward resume. It does not restore the corridor heading.
-_Avoid_: Realign, Spin (Search), Turn (Storage), PATHFIND_ROTATE (code id)
+_Avoid_: Realign, Turn (Storage), PATHFIND_ROTATE (code id)
 
 **Corridor turn**:
 The State at the end of the first corridor: the AMU turns 90° onto the second corridor and latches a new corridor heading.
@@ -146,7 +146,7 @@ _Avoid_: DEPOSIT (code id), drop-off (the place is Deposit location)
 ### Running the FSM
 
 **Idle**:
-The State in which the AMU holds still until B0 (start) is pressed. It is the first State, and the State every run returns to. Leaving it forgets the last Search.
+The State in which the AMU holds still until B0 (start) is pressed. It is the first State, and the State every run returns to. Leaving it forgets the last Search and starts a new one from Clear.
 _Avoid_: Standby, Ready, IDLE (code id)
 
 **Fault**:
@@ -154,7 +154,7 @@ The State the AMU stops in when it must not go on: B1 pressed, a wheel dropped, 
 _Avoid_: Error, Stop, E-stop
 
 **State**:
-One box of the FSM diagram, named in capitals (SEARCH, DETECT, SPIN). In the firmware it is one arm of the switch in Src/main.c. One phase such as Search can span several States.
+One box of the FSM diagram, named in capitals (SEARCH, TRACK, EDGE SCAN). In the firmware it is one arm of the switch in Src/main.c. One phase such as Search can span several States.
 _Avoid_: Mode, Event
 
 **Action**:
@@ -163,4 +163,4 @@ _Avoid_: Event, Transition, Rule, Trigger
 
 **Tick**:
 One pass of the FSM, in which the current State's Actions are checked once. There is one Tick per received Kobuki packet.
-_Avoid_: Step (already the Spin angle), Cycle, Loop
+_Avoid_: Step, Cycle, Loop
