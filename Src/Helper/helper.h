@@ -16,16 +16,16 @@
 
 // Scan angles are degrees from the heading at B0, anticlockwise positive.
 #define SCAN_FULL_DEG   360
-#define SCAN_SPEED_MM_S 100
+#define SCAN_SPEED_MM_S 150
 
 // The first reading on a bollard is under this for Layout B (the nearer bollard), otherwise Layout A.
 #define LAYOUT_B_MAX_MM 575U
 
 // Orient: Layout A turns CW to the bottom corridor; Layout B turns ACW to the left corridor.
 #define ORIENT_A_DEG (-75)
-#define ORIENT_B_DEG (115)
+#define ORIENT_B_DEG (110)
 
-#define PATHFIND_DRIVE_SPEED  100
+#define PATHFIND_DRIVE_SPEED  150
 #define PATHFIND_CORNER_A_DEG 90
 #define PATHFIND_CORNER_B_DEG (-90)
 #define PATHFIND_REVERSE_MM   50
