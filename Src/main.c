@@ -40,20 +40,12 @@ static bool b1_or_wheeldrop(void)
 
 static bool fault_all(void)
 {
-    return b1_or_wheeldrop() || robot.kobuki.bumper != 0 || robot.kobuki.cliff != 0;
+    return b1_or_wheeldrop() || robot.kobuki.bumper != 0 || Kobuki_IsCliffDetected(&robot.kobuki, SIDE_ANY);
 }
 
 static bool fault_ignore_cliff(void)
 {
     return b1_or_wheeldrop() || robot.kobuki.bumper != 0;
-}
-
-static int16_t corridor_length_mm(void)
-{
-    if (robot.layout == LAYOUT_A) {
-        return (robot.corridor == 1) ? PATHFIND_CORRIDOR_1_A_MM : PATHFIND_CORRIDOR_2_A_MM;
-    }
-    return (robot.corridor == 1) ? PATHFIND_CORRIDOR_1_B_MM : PATHFIND_CORRIDOR_2_B_MM;
 }
 
 // Enter a state: run that state's entry work, then leave its do/checks for the next packet.
@@ -289,7 +281,6 @@ int main(void)
                 if (robot.kobuki.rotation_complete != 0) {
                     robot.heading = robot.kobuki.angle;
                     robot.corridor = 1;
-                    robot.corridor_start_distance = robot.kobuki.distance;
                     change_to(ST_PATHFIND_DRIVE);
                     break;
                 }
@@ -297,8 +288,7 @@ int main(void)
                 break;
 
             case ST_PATHFIND_DRIVE: {
-                bool corridor_done = Kobuki_Distance_Delta_Mm(robot.corridor_start_distance, robot.kobuki.distance) >=
-                                     corridor_length_mm();
+                bool front_cliff = Kobuki_IsCliffDetected(&robot.kobuki, SIDE_CENTRE);
                 uint8_t wall_mask = (robot.layout == LAYOUT_A) ? SIDE_LEFT : SIDE_RIGHT;
                 uint8_t ledge_mask = (robot.layout == LAYOUT_A) ? SIDE_RIGHT : SIDE_LEFT;
                 int16_t wall_nudge = (robot.layout == LAYOUT_A) ? PATHFIND_ROTATE_A_DEG : PATHFIND_ROTATE_B_DEG;
@@ -307,11 +297,11 @@ int main(void)
                     change_to(ST_FAULT);
                     break;
                 }
-                if (corridor_done && robot.corridor == 1) {
+                if (front_cliff && robot.corridor == 1) {
                     change_to(ST_PATHFIND_CORRIDOR_TURN);
                     break;
                 }
-                if (corridor_done && robot.corridor == 2) {
+                if (front_cliff && robot.corridor == 2) {
                     change_to(ST_PATHFIND_CORRIDOR_STOP);
                     break;
                 }
@@ -320,7 +310,7 @@ int main(void)
                     change_to(ST_PATHFIND_REVERSE);
                     break;
                 }
-                if ((robot.kobuki.cliff & ledge_mask) != 0) {
+                if (Kobuki_IsCliffDetected(&robot.kobuki, ledge_mask)) {
                     robot.pathfind_recover_deg = (int16_t)(-wall_nudge);
                     change_to(ST_PATHFIND_REVERSE);
                     break;
@@ -362,7 +352,6 @@ int main(void)
                 if (robot.kobuki.rotation_complete != 0) {
                     robot.heading = robot.kobuki.angle;
                     robot.corridor = 2;
-                    robot.corridor_start_distance = robot.kobuki.distance;
                     change_to(ST_PATHFIND_DRIVE);
                     break;
                 }
