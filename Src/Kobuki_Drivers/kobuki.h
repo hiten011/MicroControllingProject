@@ -7,6 +7,7 @@
 // Kobuki structure
 typedef struct {
     uint8_t cliff;
+    uint16_t cliff_raw[3];  // right, centre, left PSD readings
     uint8_t bumper;
     uint8_t wheeldrop;
     uint8_t button;
@@ -18,7 +19,7 @@ typedef struct {
 
 typedef enum { OFF, RED, GREEN, YELLOW } Kobuki_LED_Enum;
 
-#define SIZE_FEEDBACK 26
+#define SIZE_FEEDBACK 39  // up to the end of the 0x05 cliff sub-payload
 
 // Buffer defintions for x payload
 #define BUMPER     4
@@ -29,6 +30,12 @@ typedef enum { OFF, RED, GREEN, YELLOW } Kobuki_LED_Enum;
 #define BUTTON     13
 #define ANGLE_LSB  24  // only needs 1 wheel
 #define ANGLE_MSB  25
+#define CLIFF_ID   31  // sub-payload header, 0x05
+#define CLIFF_RAW  33  // right, centre, left as uint16 LSB first
+
+// A raw cliff reading under this counts as a ledge. Lower is further from the floor.
+// Calibrate on the real arena: read cliff_raw over the floor and over the ledge, set between them.
+#define CLIFF_RAW_LIMIT 1100U
 
 // Truncated speed
 #define SPEED_LIMIT  (int16_t)150   // mm / s
