@@ -24,7 +24,7 @@
 #define EDGE_BAND_MM         60U
 
 // The closest reading on a bollard is under this for Layout B (the nearer bollard), otherwise Layout A.
-#define LAYOUT_B_MAX_MM 475U
+#define LAYOUT_B_MAX_MM 575U
 
 // Orient: Layout A turns CW to the bottom corridor; Layout B turns ACW to the left corridor.
 #define ORIENT_A_DEG (-90)
