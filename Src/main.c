@@ -1,6 +1,39 @@
 #include "uart.h"
 #include "adc.h"
 #include "helper.h"
+#include <stdint.h>
+
+#define DEPOSIT_SCAN_SPEED_MM_S 25
+#define DEPOSIT_SCAN_PASSES 3
+#define DEPOSIT_BEARING_TOL_DEG 20
+#define DEPOSIT_MAX_RANGE_MM 700
+#define DEPOSIT_MIN_RANGE_MM 70
+#define DEPOSIT_TARGET_MM 100
+#define DEPOSIT_TOL_MM 25
+#define DEPOSIT_STEP_MM 60
+#define DEPOSIT_MAX_ADJUSTMENTS 12
+
+static uint8_t deposit_passes = 0;
+static uint8_t deposit_hits = 0;
+static uint8_t deposit_adjustments = 0;
+static uint16_t deposit_best_range = UINT16_MAX;
+static int16_t deposit_bearing_tick = 0;
+static int16_t deposit_candidate_tick = 0;
+static int16_t deposit_move_mm = 0;
+
+static int16_t Deposit_Angle_Difference(int16_t target, int16_t current)
+{
+    int32_t diff = (int32_t)target - current;
+    while (diff > 18000) diff -= 36000;
+    while (diff < -18000) diff += 36000;
+    return (int16_t)diff;
+}
+
+static void Deposit_Reset_Pass(void)
+{
+    deposit_best_range = UINT16_MAX;
+    Scan_Start(robot.kobuki.angle);
+}
 
 typedef enum {
     ST_IDLE,
@@ -23,6 +56,11 @@ typedef enum {
     ST_TURN,
     ST_DRIVE_IN,
     ST_DEPOSIT,
+    ST_DEPOSIT_SCAN,
+    ST_DEPOSIT_ALIGN,
+    ST_DEPOSIT_ADJUST,
+    ST_DEPOSIT_MOVE,
+    ST_DEPOSIT_DONE,
     ST_FAULT
 } State;
 
@@ -53,8 +91,30 @@ static void change_to(State next) {
         case ST_IDENTIFY:
         case ST_CORRIDOR_STOP:
         case ST_DEPOSIT:
+        case ST_DEPOSIT_SCAN:
+        case ST_DEPOSIT_ADJUST:
+        case ST_DEPOSIT_DONE:
         case ST_FAULT:
             Kobuki_Drive(STOP);
+            if (next == ST_DEPOSIT) {
+                deposit_passes = 0;
+                deposit_hits = 0;
+                deposit_adjustments = 0;
+                deposit_candidate_tick = 0;
+                Deposit_Reset_Pass();
+            }
+            if (next == ST_DEPOSIT_SCAN) Deposit_Reset_Pass();
+            break;
+
+        case ST_DEPOSIT_ALIGN:
+            Kobuki_Drive(STOP);
+            Kobuki_Rotate_Angle_Setpoint(
+                robot.kobuki.angle,
+                (int16_t)(Deposit_Angle_Difference(deposit_bearing_tick, robot.kobuki.angle) / 100));
+            break;
+
+        case ST_DEPOSIT_MOVE:
+            Kobuki_Drive_Distance_Setpoint(robot.kobuki.distance, deposit_move_mm);
             break;
 
         case ST_ORIENT:
@@ -145,8 +205,8 @@ int main(void)
                     Delay_ms(500);
                 }
 
-    change_to(ST_ORIENT);
-    break;
+                change_to(ST_ORIENT);
+                break;
 
             // PATHFIND phase
             case ST_DRIVE:
@@ -251,11 +311,116 @@ int main(void)
                 break;
 
             case ST_DEPOSIT:
-                if (Fault_B1_Wheeldrop()) {
+                if (Fault_Any()) {
                     change_to(ST_FAULT);
                     break;
                 }
-                change_to(ST_IDLE);
+                change_to(ST_DEPOSIT_SCAN);
+                break;
+
+            case ST_DEPOSIT_SCAN:
+                if (Fault_Any()) {
+                    change_to(ST_FAULT);
+                    break;
+                }
+                Scan_Update_Turn(robot.kobuki.angle);
+                robot.object.detected = 0;
+                Ultrasonic_Detect(&robot.object);
+                if (robot.object.detected != 0 &&
+                    robot.object.range_mm >= DEPOSIT_MIN_RANGE_MM &&
+                    robot.object.range_mm <= DEPOSIT_MAX_RANGE_MM &&
+                    robot.object.range_mm < deposit_best_range) {
+                    deposit_best_range = robot.object.range_mm;
+                    deposit_candidate_tick = robot.kobuki.angle;
+                }
+                if (Scan_Gave_Up()) {
+                    if (deposit_best_range == UINT16_MAX) {
+                        change_to(ST_FAULT);
+                        break;
+                    }
+                    if (deposit_passes == 0) {
+                        deposit_bearing_tick = deposit_candidate_tick;
+                        deposit_hits = 1;
+                    } else {
+                        int16_t diff = Deposit_Angle_Difference(deposit_bearing_tick, deposit_candidate_tick);
+                        if (diff >= -(DEPOSIT_BEARING_TOL_DEG * 100) &&
+                            diff <= (DEPOSIT_BEARING_TOL_DEG * 100)) {
+                            deposit_hits++;
+                        }
+                    }
+                    deposit_passes++;
+                    Kobuki_Drive(STOP);
+                    if (deposit_passes >= DEPOSIT_SCAN_PASSES) {
+                        if (deposit_hits == DEPOSIT_SCAN_PASSES) {
+                            change_to(ST_DEPOSIT_ALIGN);
+                        } else {
+                            change_to(ST_FAULT);
+                        }
+                    } else {
+                        Deposit_Reset_Pass();
+                    }
+                    break;
+                }
+                Kobuki_Rotate(DEPOSIT_SCAN_SPEED_MM_S);
+                break;
+
+            case ST_DEPOSIT_ALIGN:
+                if (Fault_Any()) {
+                    change_to(ST_FAULT);
+                    break;
+                }
+                if (robot.kobuki.rotation_complete != 0) {
+                    change_to(ST_DEPOSIT_ADJUST);
+                    break;
+                }
+                Kobuki_Rotate_Angle(robot.kobuki.angle);
+                break;
+
+            case ST_DEPOSIT_ADJUST: {
+                if (Fault_Any()) {
+                    change_to(ST_FAULT);
+                    break;
+                }
+                robot.object.detected = 0;
+                Ultrasonic_Detect(&robot.object);
+                if (robot.object.detected == 0 ||
+                    robot.object.range_mm < DEPOSIT_MIN_RANGE_MM ||
+                    robot.object.range_mm > DEPOSIT_MAX_RANGE_MM) {
+                    change_to(ST_FAULT);
+                    break;
+                }
+                int32_t error_mm = (int32_t)robot.object.range_mm - DEPOSIT_TARGET_MM;
+                if (error_mm >= -DEPOSIT_TOL_MM && error_mm <= DEPOSIT_TOL_MM) {
+                    change_to(ST_DEPOSIT_DONE);
+                    break;
+                }
+                if (deposit_adjustments >= DEPOSIT_MAX_ADJUSTMENTS) {
+                    change_to(ST_FAULT);
+                    break;
+                }
+                if (error_mm > DEPOSIT_STEP_MM) error_mm = DEPOSIT_STEP_MM;
+                if (error_mm < -DEPOSIT_STEP_MM) error_mm = -DEPOSIT_STEP_MM;
+                deposit_move_mm = (int16_t)error_mm;
+                deposit_adjustments++;
+                change_to(ST_DEPOSIT_MOVE);
+                break;
+            }
+
+            case ST_DEPOSIT_MOVE:
+                if (Fault_Any()) {
+                    change_to(ST_FAULT);
+                    break;
+                }
+                if (robot.kobuki.distance_complete != 0) {
+                    change_to(ST_DEPOSIT_ADJUST);
+                    break;
+                }
+                Kobuki_Drive_Distance(robot.kobuki.distance);
+                break;
+
+            case ST_DEPOSIT_DONE:
+                Kobuki_Drive(STOP);
+                if (Fault_B1_Wheeldrop()) change_to(ST_FAULT);
                 break;
 
             case ST_FAULT:
