@@ -23,7 +23,7 @@
 
 // Orient: Layout A turns CW to the bottom corridor; Layout B turns ACW to the left corridor.
 #define ORIENT_A_DEG (-75)
-#define ORIENT_B_DEG (110)
+#define ORIENT_B_DEG (105)
 
 #define PATHFIND_DRIVE_SPEED  150
 #define PATHFIND_CORNER_A_DEG 90

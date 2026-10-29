@@ -227,16 +227,11 @@ int main(void)
                     break;
                 }
                 robot.layout = Layout_From_Range(robot.object.range_mm);
-                // Flash LED 1 three times to indicate detected layout
-                for (int i = 0; i < 3; i++) {
-                    if (robot.layout == LAYOUT_A) {
-                        Kobuki_Update_LEDs(RED, OFF);
-                    } else {
-                        Kobuki_Update_LEDs(YELLOW, OFF);
-                    }
-                    Delay_ms(500);
-                    Kobuki_Update_LEDs(OFF, OFF);
-                    Delay_ms(500);
+                // Indicate the detected layout without blocking navigation.
+                if (robot.layout == LAYOUT_A) {
+                    Kobuki_Update_LEDs(RED, OFF);
+                } else {
+                    Kobuki_Update_LEDs(YELLOW, OFF);
                 }
                 change_to(ST_ORIENT);
                 break;
