@@ -51,6 +51,19 @@ void Scan_Update_Turn(int16_t angle_tick)
     }
 }
 
+void Delay_ms(uint32_t ms)
+{
+    volatile uint32_t count;
+    while (ms > 0) {
+        count = 0;
+        while (count < 10000) {
+            count++;
+        }
+        ms--;
+    }
+}
+
+
 void Scan_Sample(void)
 {
     Scan_Update_Turn(robot.kobuki.angle);

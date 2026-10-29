@@ -70,6 +70,10 @@ void Scan_Start(int16_t angle_tick);
 // Add the turn since the last call to scan_deg. Gyro ticks are 0.01 deg and wrap at +-18000.
 void Scan_Update_Turn(int16_t angle_tick);
 
+//Delay Function - Used to blink LEDs
+void Delay_ms(uint32_t ms);
+
+
 // Update scan_deg from the gyro and read the ultrasonic once.
 void Scan_Sample(void);
 

@@ -1,4 +1,3 @@
-#include "my_stm_helper.h"
 #include "uart.h"
 #include "adc.h"
 #include "helper.h"
@@ -30,8 +29,7 @@ typedef enum {
 static State state = ST_IDLE;
 
 // A transition runs the old State's exit, then the new State's entry.
-static void change_to(State next)
-{
+static void change_to(State next) {
     switch (state) {
         case ST_IDLE:
             robot.layout = LAYOUT_NONE;
@@ -119,7 +117,7 @@ int main(void)
                     break;
                 }
                 if (Scan_Gave_Up()) {
-                    Kobuki_Update_LEDs(GREEN, NONE);
+                    Kobuki_Update_LEDs(GREEN, OFF);
                     change_to(ST_FAULT);
                     break;
                 }
@@ -131,24 +129,24 @@ int main(void)
                     change_to(ST_FAULT);
                     break;
                 }
-                robot.layout = Layout_From_Range(robot.object.range_mm);
-                Kobuki_Update_LEDs((robot.layout == LAYOUT_A) ? RED : YELLOW, NONE);
-                change_to(ST_ORIENT);
-                break;
 
-            case ST_ORIENT:
-                if (Fault_Any()) {
-                    change_to(ST_FAULT);
-                    break;
+                robot.layout = Layout_From_Range(robot.object.range_mm);
+
+                // Flash LED 3 times
+                for (int i = 0; i < 3; i++) {
+                    if (robot.layout == LAYOUT_A) {
+                        Kobuki_Update_LEDs(RED, OFF);
+                    } else {
+                        Kobuki_Update_LEDs(YELLOW, OFF);
+                    }
+                    Delay_ms(500);
+
+                    Kobuki_Update_LEDs(OFF, OFF);
+                    Delay_ms(500);
                 }
-                if (robot.kobuki.rotation_complete != 0) {
-                    robot.heading = robot.kobuki.angle;
-                    robot.corridor = 1;
-                    change_to(ST_DRIVE);
-                    break;
-                }
-                Kobuki_Rotate_Angle(robot.kobuki.angle);
-                break;
+
+    change_to(ST_ORIENT);
+    break;
 
             // PATHFIND phase
             case ST_DRIVE:
@@ -183,31 +181,6 @@ int main(void)
                 Kobuki_Drive_Distance(robot.kobuki.distance);
                 break;
 
-            case ST_ROTATE:
-                if (Fault_B1_Wheeldrop()) {
-                    change_to(ST_FAULT);
-                    break;
-                }
-                if (robot.kobuki.rotation_complete != 0) {
-                    change_to(ST_DRIVE);
-                    break;
-                }
-                Kobuki_Rotate_Angle(robot.kobuki.angle);
-                break;
-
-            case ST_CORRIDOR_TURN:
-                if (Fault_B1_Wheeldrop()) {
-                    change_to(ST_FAULT);
-                    break;
-                }
-                if (robot.kobuki.rotation_complete != 0) {
-                    robot.corridor = 2;
-                    change_to(ST_DRIVE);
-                    break;
-                }
-                Kobuki_Rotate_Angle(robot.kobuki.angle);
-                break;
-
             case ST_CORRIDOR_REVERSE:
                 if (Fault_B1_Wheeldrop()) {
                     change_to(ST_FAULT);
@@ -228,18 +201,37 @@ int main(void)
                 change_to(ST_TURN);
                 break;
 
-            // STORAGE phase
+            case ST_ORIENT:
+            case ST_ROTATE:
+            case ST_CORRIDOR_TURN:
             case ST_TURN:
-                if (Fault_B1_Wheeldrop()) {
+                // ORIENT checks all faults; the other rotations check B1/wheeldrop.
+                if ((state == ST_ORIENT && Fault_Any()) ||
+                    (state != ST_ORIENT && Fault_B1_Wheeldrop())) {
                     change_to(ST_FAULT);
                     break;
                 }
-                if (robot.kobuki.rotation_complete != 0) {
-                    change_to(ST_DRIVE_IN);
+
+                if (robot.kobuki.rotation_complete == 0) {
+                    Kobuki_Rotate_Angle(robot.kobuki.angle);
                     break;
                 }
-                Kobuki_Rotate_Angle(robot.kobuki.angle);
+
+                if (state == ST_ORIENT) {
+                    robot.heading = robot.kobuki.angle;
+                    robot.corridor = 1;
+                    change_to(ST_DRIVE);
+                } else if (state == ST_ROTATE) {
+                    change_to(ST_DRIVE);
+                } else if (state == ST_CORRIDOR_TURN) {
+                    robot.corridor = 2;
+                    change_to(ST_DRIVE);
+                } else {
+                    change_to(ST_DRIVE_IN);
+                }
                 break;
+
+            // STORAGE phase
 
             case ST_DRIVE_IN:
                 if (Fault_B1_Wheeldrop()) {

@@ -2,8 +2,7 @@
 #include "stm32g474xx.h"
 #include "adc.h"
 
-void ADC_Init(void)
-{
+void ADC_Init(void) {
     /* ADC1 and ADC2 share the ADC12 clock. */
     RCC->AHB2ENR |= RCC_AHB2ENR_ADC12EN;
 
@@ -28,8 +27,7 @@ void ADC_Init(void)
     while ((ADC1->ISR & ADC_ISR_ADRDY) == 0U) {}
 }
 
-uint16_t ADC_Read(uint8_t channel)
-{
+uint16_t ADC_Read(uint8_t channel) {
     if ((channel < 1U) || (channel > 18U)) {
         return 0U;
     }
