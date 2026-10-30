@@ -83,3 +83,79 @@ bool Corridor_Take_Ledge_Hit(const Kobuki_Typedef *kobuki)
     robot.pathfind_recover_deg = (int16_t)(-Layout_Pick(PATHFIND_ROTATE_A_DEG, PATHFIND_ROTATE_B_DEG));
     return true;
 }
+
+bool Deposit_Marker_Seen(void)
+{
+    return robot.object.range_mm < DEPOSIT_DETECT_MM;
+}
+
+void Deposit_Keep_Closest(void)
+{
+    if (robot.object.range_mm < robot.closest) {
+        robot.closest = robot.object.range_mm;
+    }
+}
+
+void Deposit_Track_Sample(void)
+{
+    if (!Deposit_Marker_Seen()) {
+        return;
+    }
+    robot.last_seen = robot.scan_deg;
+    Deposit_Keep_Closest();
+}
+
+bool Deposit_Marker_Lost(void)
+{
+    return robot.scan_deg - robot.last_seen >= DEPOSIT_LOST_DEG;
+}
+
+void Deposit_Edge_Start(void)
+{
+    robot.edge_mm = (uint16_t)(robot.closest + DEPOSIT_EDGE_BAND_MM);
+    robot.edge_start = DEPOSIT_EDGE_UNSET_DEG;
+    robot.edge_end = -DEPOSIT_EDGE_UNSET_DEG;
+}
+
+void Deposit_Edge_Sample(void)
+{
+    Deposit_Keep_Closest();
+    if (robot.object.range_mm > robot.edge_mm) {
+        return;
+    }
+    if (robot.scan_deg < robot.edge_start) {
+        robot.edge_start = robot.scan_deg;
+    }
+    if (robot.scan_deg > robot.edge_end) {
+        robot.edge_end = robot.scan_deg;
+    }
+}
+
+bool Deposit_Edge_Done(void)
+{
+    return robot.edge_start <= robot.edge_end && robot.scan_deg <= robot.edge_start - DEPOSIT_LOST_DEG;
+}
+
+bool Measure_Take_Reading(void)
+{
+    robot.samples_mm[robot.samples] = Ultrasonic_Read();
+    robot.samples++;
+    if (robot.samples < DEPOSIT_MEASURE_SAMPLES) {
+        return false;
+    }
+
+    // Insertion sort, so the middle sample is the median.
+    for (uint8_t i = 1U; i < DEPOSIT_MEASURE_SAMPLES; i++) {
+        uint16_t value = robot.samples_mm[i];
+        uint8_t j = i;
+
+        while (j > 0U && robot.samples_mm[j - 1U] > value) {
+            robot.samples_mm[j] = robot.samples_mm[j - 1U];
+            j--;
+        }
+        robot.samples_mm[j] = value;
+    }
+    robot.reading = robot.samples_mm[DEPOSIT_MEASURE_SAMPLES / 2U];
+    robot.drive_mm = (int16_t)((int32_t)robot.reading - DEPOSIT_GAP_READING_MM);
+    return true;
+}

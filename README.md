@@ -11,10 +11,11 @@ Firmware for the Autonomous Mobile Unit (AMU): a Kobuki base driven by a NUCLEO-
 One control step per received Kobuki packet (`Kobuki_Read()`, then a `switch` on the current state in `Src/main.c`). The AMU walks this path:
 
 ```
-IDLE ──B0──▶ SEARCH ─▶ IDENTIFY ─▶ ORIENT ──▶ PATHFIND ──▶ STORAGE ──▶ IDLE
+IDLE ──B0──▶ SEARCH ─▶ IDENTIFY ─▶ ORIENT ──▶ PATHFIND ──▶ STORAGE ──▶ DEPOSIT ──▶ IDLE
 
 PATHFIND = Drive, Reverse, Rotate, Corridor turn / reverse / stop
-STORAGE  = Turn, Drive-in, Deposit
+STORAGE  = Turn, Drive-in
+DEPOSIT  = Deposit search / track / edge scan / align, Measure, Deposit backoff / drive
 
 Any State except IDLE ──B1 / wheeldrop──▶ STOP / FAULT ──▶ IDLE
 ```
