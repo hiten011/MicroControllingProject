@@ -222,6 +222,7 @@ void Kobuki_Rotate_Angle(int16_t current_angle_tick)
     }
 
     if (abs(error) <= 0) {
+       // Kobuki_Drive(STOP); // Added to increase accuracy when turning.
         rotation_complete = 1;
     } else {
         speed = (sign(error) * MIN_SPEED) + (int16_t)(GAIN_ROTATE * error);

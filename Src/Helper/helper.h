@@ -23,7 +23,7 @@
 
 // Orient: Layout A turns CW to the bottom corridor; Layout B turns ACW to the left corridor.
 #define ORIENT_A_DEG (-75)
-#define ORIENT_B_DEG (110)
+#define ORIENT_B_DEG (105)
 
 #define PATHFIND_DRIVE_SPEED  150
 #define PATHFIND_CORNER_A_DEG 90
@@ -69,6 +69,10 @@ void Scan_Start(int16_t angle_tick);
 
 // Add the turn since the last call to scan_deg. Gyro ticks are 0.01 deg and wrap at +-18000.
 void Scan_Update_Turn(int16_t angle_tick);
+
+//Delay Function - Used to blink LEDs
+void Delay_ms(uint32_t ms);
+
 
 // Update scan_deg from the gyro and read the ultrasonic once.
 void Scan_Sample(void);
