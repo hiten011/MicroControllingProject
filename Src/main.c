@@ -24,12 +24,14 @@ static int16_t deposit_candidate_tick = 0;
 static int16_t deposit_move_mm = 0;
 static uint32_t deposit_led_blink_count = 0;
 static uint8_t deposit_led_on = 0;
-static uint8_t deposit_scan_phase = 0; // 0: find first edge, 1: find far edge, 2: reverse to far edge, 3: find near edge
-static uint8_t deposit_missed_samples = 0;
-static int16_t deposit_first_edge_tick = 0;
-static int16_t deposit_far_edge_tick = 0;
-static int16_t deposit_reverse_far_edge_tick = 0;
-#define DEPOSIT_EDGE_MISSES 4
+// Deposit scan: full revolution, return to nearest object, then refine both edges.
+static int16_t deposit_edge_one_tick = 0;
+static int16_t deposit_edge_two_tick = 0;
+static int16_t deposit_last_seen_tick = 0;
+static uint8_t deposit_edge_misses = 0;
+#define DEPOSIT_EDGE_MISSES 4U
+static uint8_t deposit_edge_saw_rod = 0;
+static uint8_t deposit_reverse_saw_rod = 0;
 
 // Calculate the difference between two angles
 static int16_t Deposit_Angle_Difference(int16_t target, int16_t current)
@@ -69,6 +71,9 @@ typedef enum {
     // DEPOSIT phase
     ST_DEPOSIT,
     ST_DEPOSIT_SCAN,
+    ST_DEPOSIT_RETURN,
+    ST_DEPOSIT_EDGE_FORWARD,
+    ST_DEPOSIT_EDGE_REVERSE,
     ST_DEPOSIT_ALIGN,
     ST_DEPOSIT_ADJUST,
     ST_DEPOSIT_MOVE,
@@ -113,11 +118,11 @@ static void change_to(State next)
                 deposit_adjustments = 0;
                 deposit_candidate_tick = 0;
                 Deposit_Reset_Pass();
-                deposit_scan_phase = 0;
-                deposit_missed_samples = 0;
-                deposit_first_edge_tick = 0;
-                deposit_far_edge_tick = 0;
-                deposit_reverse_far_edge_tick = 0;
+                // Reset new edge workflow variables for deposit workflow
+                deposit_edge_misses = 0;
+                deposit_edge_one_tick = 0;
+                deposit_edge_two_tick = 0;
+                deposit_last_seen_tick = 0;
             }
             if (next == ST_DEPOSIT_SCAN) {
                 Deposit_Reset_Pass();
@@ -127,6 +132,26 @@ static void change_to(State next)
                 deposit_led_on = 1;
                 Kobuki_Update_LEDs(OFF, GREEN);
             }
+            break;
+        case ST_DEPOSIT_RETURN:
+            Kobuki_Drive(STOP);
+            Kobuki_Rotate_Angle_Setpoint(
+                robot.kobuki.angle,
+                (int16_t)(Deposit_Angle_Difference(deposit_candidate_tick, robot.kobuki.angle) / 100));
+            break;
+        case ST_DEPOSIT_EDGE_FORWARD:
+            Kobuki_Drive(STOP);
+            deposit_edge_misses = 0;
+            deposit_last_seen_tick = robot.kobuki.angle;
+            deposit_edge_saw_rod = 0;
+            Scan_Start(robot.kobuki.angle);
+            break;
+        case ST_DEPOSIT_EDGE_REVERSE:
+            Kobuki_Drive(STOP);
+            deposit_edge_misses = 0;
+            deposit_last_seen_tick = robot.kobuki.angle;
+            deposit_reverse_saw_rod = 0;
+            Scan_Start(robot.kobuki.angle);
             break;
         case ST_DEPOSIT_ALIGN:
             Kobuki_Drive(STOP);
@@ -347,75 +372,111 @@ int main(void)
                 change_to(ST_DEPOSIT_SCAN);
                 break;
             // =========================
-            // DEPOSIT SCANNING
+            // DEPOSIT SCANNING WORKFLOW
             // =========================
-            case ST_DEPOSIT_SCAN: {
+            case ST_DEPOSIT_SCAN:
                 if (Fault_Any()) {
                     change_to(ST_FAULT);
                     break;
                 }
-
                 Scan_Update_Turn(robot.kobuki.angle);
                 robot.object.detected = 0;
                 Ultrasonic_Detect(&robot.object);
-                uint8_t sees_rod = (robot.object.detected != 0 &&
+                if (robot.object.detected != 0 &&
                     robot.object.range_mm >= DEPOSIT_MIN_RANGE_MM &&
-                    robot.object.range_mm <= DEPOSIT_MAX_RANGE_MM);
-
-                // One forward sweep across the rod, then a reverse sweep back across it.
-                // A few missed samples prevent a single ultrasonic dropout from forming an edge.
-                if (deposit_scan_phase == 0) {
-                    if (sees_rod) {
-                        deposit_first_edge_tick = robot.kobuki.angle;
-                        deposit_missed_samples = 0;
-                        deposit_scan_phase = 1;
-                    }
-                } else if (deposit_scan_phase == 1) {
-                    if (sees_rod) {
-                        deposit_far_edge_tick = robot.kobuki.angle;
-                        deposit_missed_samples = 0;
-                    } else if (++deposit_missed_samples >= DEPOSIT_EDGE_MISSES) {
-                        // Turn around just after passing the far edge.
-                        deposit_scan_phase = 2;
-                        deposit_missed_samples = 0;
-                        Scan_Start(robot.kobuki.angle);
-                        Kobuki_Drive(STOP);
-                    }
-                } else if (deposit_scan_phase == 2) {
-                    if (sees_rod) {
-                        deposit_reverse_far_edge_tick = robot.kobuki.angle;
-                        deposit_scan_phase = 3;
-                        deposit_missed_samples = 0;
-                    }
-                } else {
-                    if (sees_rod) {
-                        deposit_candidate_tick = robot.kobuki.angle; // Near edge on return sweep
-                        deposit_missed_samples = 0;
-                    } else if (++deposit_missed_samples >= DEPOSIT_EDGE_MISSES) {
-                        // Midpoint of rod's detected angular width in each direction.
-                        int16_t forward_mid = (int16_t)(deposit_first_edge_tick +
-                            Deposit_Angle_Difference(deposit_far_edge_tick, deposit_first_edge_tick) / 2);
-                        int16_t reverse_mid = (int16_t)(deposit_reverse_far_edge_tick +
-                            Deposit_Angle_Difference(deposit_candidate_tick, deposit_reverse_far_edge_tick) / 2);
-                        int16_t difference = Deposit_Angle_Difference(reverse_mid, forward_mid);
-                        if (difference < -(DEPOSIT_BEARING_TOL_DEG * 100) ||
-                            difference > (DEPOSIT_BEARING_TOL_DEG * 100)) {
-                            change_to(ST_FAULT);
-                        } else {
-                            deposit_bearing_tick = (int16_t)(forward_mid + difference / 2);
-                            change_to(ST_DEPOSIT_ALIGN);
-                        }
-                        break;
-                    }
+                    robot.object.range_mm <= DEPOSIT_MAX_RANGE_MM &&
+                    robot.object.range_mm < deposit_best_range) {
+                    deposit_best_range = robot.object.range_mm;
+                    deposit_candidate_tick = robot.kobuki.angle;
                 }
+                if (Scan_Gave_Up()) {
+                    Kobuki_Drive(STOP);
+                    if (deposit_best_range == UINT16_MAX) {
+                        change_to(ST_FAULT);
+                    } else {
+                        change_to(ST_DEPOSIT_RETURN);
+                    }
+                    break;
+                }
+                Kobuki_Rotate(DEPOSIT_SCAN_SPEED_MM_S);
+                break;
 
-                // Don't rotate indefinitely if there is no suitable rod detection.
+            case ST_DEPOSIT_RETURN:
+                if (Fault_Any()) {
+                    change_to(ST_FAULT);
+                    break;
+                }
+                if (robot.kobuki.rotation_complete != 0) {
+                    change_to(ST_DEPOSIT_EDGE_FORWARD);
+                    break;
+                }
+                Kobuki_Rotate_Angle(robot.kobuki.angle);
+                break;
+
+            case ST_DEPOSIT_EDGE_FORWARD: {
+                if (Fault_Any()) {
+                    change_to(ST_FAULT);
+                    break;
+                }
+                Scan_Update_Turn(robot.kobuki.angle);
+                robot.object.detected = 0;
+                Ultrasonic_Detect(&robot.object);
+                uint8_t sees_rod = robot.object.detected != 0 &&
+                    robot.object.range_mm >= DEPOSIT_MIN_RANGE_MM &&
+                    robot.object.range_mm <= DEPOSIT_MAX_RANGE_MM;
+                if (sees_rod) {
+                    deposit_last_seen_tick = robot.kobuki.angle;
+                    deposit_edge_misses = 0;
+                    deposit_edge_saw_rod = 1;
+                } else if (++deposit_edge_misses >= DEPOSIT_EDGE_MISSES) {
+                    if (!deposit_edge_saw_rod) {
+                        // Never saw rod at all, fault.
+                        change_to(ST_FAULT);
+                    } else {
+                        deposit_edge_one_tick = deposit_last_seen_tick;
+                        change_to(ST_DEPOSIT_EDGE_REVERSE);
+                    }
+                    break;
+                }
                 if (robot.scan_deg >= SCAN_FULL_DEG || robot.scan_deg <= -SCAN_FULL_DEG) {
                     change_to(ST_FAULT);
                     break;
                 }
-                Kobuki_Rotate((deposit_scan_phase < 2) ?
-                    DEPOSIT_SCAN_SPEED_MM_S : -DEPOSIT_SCAN_SPEED_MM_S);
+                Kobuki_Rotate(DEPOSIT_SCAN_SPEED_MM_S);
+                break;
+            }
+
+            case ST_DEPOSIT_EDGE_REVERSE: {
+                if (Fault_Any()) {
+                    change_to(ST_FAULT);
+                    break;
+                }
+                Scan_Update_Turn(robot.kobuki.angle);
+                robot.object.detected = 0;
+                Ultrasonic_Detect(&robot.object);
+                uint8_t sees_rod = robot.object.detected != 0 &&
+                    robot.object.range_mm >= DEPOSIT_MIN_RANGE_MM &&
+                    robot.object.range_mm <= DEPOSIT_MAX_RANGE_MM;
+                if (sees_rod) {
+                    deposit_last_seen_tick = robot.kobuki.angle;
+                    deposit_edge_misses = 0;
+                    deposit_reverse_saw_rod = 1;
+                } else if (++deposit_edge_misses >= DEPOSIT_EDGE_MISSES) {
+                    // Only complete if we've seen the rod at least once in this direction.
+                    if (deposit_reverse_saw_rod) {
+                        deposit_edge_two_tick = deposit_last_seen_tick;
+                        // Midpoint follows the shorter arc between the two rod edges.
+                        deposit_bearing_tick = (int16_t)(deposit_edge_one_tick +
+                            Deposit_Angle_Difference(deposit_edge_two_tick, deposit_edge_one_tick) / 2);
+                        change_to(ST_DEPOSIT_ALIGN);
+                    }
+                    break;
+                }
+                if (robot.scan_deg >= SCAN_FULL_DEG || robot.scan_deg <= -SCAN_FULL_DEG) {
+                    change_to(ST_FAULT);
+                    break;
+                }
+                Kobuki_Rotate(-DEPOSIT_SCAN_SPEED_MM_S);
                 break;
             }
             // =========================
