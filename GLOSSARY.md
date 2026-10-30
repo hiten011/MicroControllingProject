@@ -174,12 +174,16 @@ The State in which the AMU reverses a fixed 150 mm straight back along the Centr
 _Avoid_: Reverse (the storage-wall and ledge recovery), Corridor reverse, back-off
 
 **Deposit drive**:
-The State in which the AMU drives the signed distance Measure worked out, forward or in reverse, and ends in Idle. A bumper ends a forward drive early.
+The State in which the AMU drives the signed distance Measure worked out (the reading minus the Gap reading), forward or in reverse, and ends in Idle. A bumper ends a forward drive early.
 _Avoid_: Drive (the Pathfind State), Drive-in, DEPOSIT_DRIVE (code id)
 
 **Deposit gap**:
 The distance, 100 mm, between the front of the AMU and the surface of the Deposit marker when the AMU stops. The brief asks for "100 mm away" and gives no tolerance.
 _Avoid_: stand-off, clearance, distance (alone)
+
+**Gap reading**:
+The ultrasonic reading (`DEPOSIT_GAP_READING_MM`) when the AMU stands at the Deposit gap. It is a calibration value, measured on the AMU. Measure subtracts it from its reading to get the distance Deposit drive moves, so no separate sensor offset is needed.
+_Avoid_: sonar offset, SONAR_OFFSET_MM, stop distance
 
 ### Running the FSM
 

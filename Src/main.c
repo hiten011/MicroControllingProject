@@ -23,7 +23,15 @@ typedef enum {
     // STORAGE phase
     ST_TURN,
     ST_DRIVE_IN,
-    ST_DEPOSIT,
+
+    // DEPOSIT phase
+    ST_DEPOSIT_SEARCH,
+    ST_DEPOSIT_TRACK,
+    ST_DEPOSIT_EDGE_SCAN,
+    ST_DEPOSIT_ALIGN,
+    ST_MEASURE,
+    ST_DEPOSIT_BACKOFF,
+    ST_DEPOSIT_DRIVE,
     ST_FAULT
 } State;
 
@@ -54,7 +62,6 @@ static void change_to(State next)
     switch (next) {
         case ST_IDENTIFY:
         case ST_CORRIDOR_STOP:
-        case ST_DEPOSIT:
         case ST_FAULT:
             Kobuki_Drive(STOP);
             break;
@@ -82,6 +89,33 @@ static void change_to(State next)
 
         case ST_DRIVE_IN:
             Kobuki_Drive_Distance_Setpoint(robot.kobuki.distance, STORAGE_DRIVE_IN_MM);
+            break;
+
+        case ST_DEPOSIT_SEARCH:
+            Scan_Start(robot.kobuki.angle);
+            robot.backoffs = 0;
+            break;
+
+        case ST_DEPOSIT_EDGE_SCAN:
+            Deposit_Edge_Start();
+            break;
+
+        case ST_DEPOSIT_ALIGN:
+            Kobuki_Rotate_Angle_Setpoint(robot.kobuki.angle, (int16_t)(robot.centre_deg - robot.scan_deg));
+            break;
+
+        case ST_MEASURE:
+            Kobuki_Drive(STOP);
+            robot.samples = 0;
+            break;
+
+        case ST_DEPOSIT_BACKOFF:
+            robot.backoffs++;
+            Kobuki_Drive_Distance_Setpoint(robot.kobuki.distance, -DEPOSIT_BACKOFF_MM);
+            break;
+
+        case ST_DEPOSIT_DRIVE:
+            Kobuki_Drive_Distance_Setpoint(robot.kobuki.distance, robot.drive_mm);
             break;
 
         default:
@@ -248,22 +282,115 @@ int main(void)
                 }
                 if (robot.kobuki.bumper != 0) {
                     Kobuki_Drive(STOP);
-                    change_to(ST_DEPOSIT);
+                    change_to(ST_DEPOSIT_SEARCH);
                     break;
                 }
                 if (robot.kobuki.distance_complete != 0) {
-                    change_to(ST_DEPOSIT);
+                    change_to(ST_DEPOSIT_SEARCH);
                     break;
                 }
                 Kobuki_Drive_Distance(robot.kobuki.distance);
                 break;
 
-            case ST_DEPOSIT:
+            // DEPOSIT phase
+            case ST_DEPOSIT_SEARCH:
                 if (Fault_B1_Wheeldrop()) {
                     change_to(ST_FAULT);
                     break;
                 }
-                change_to(ST_IDLE);
+                Scan_Sample();
+                if (Deposit_Marker_Seen()) {
+                    robot.last_seen = robot.scan_deg;
+                    robot.closest = robot.object.range_mm;
+                    change_to(ST_DEPOSIT_TRACK);
+                    break;
+                }
+                Kobuki_Rotate(DEPOSIT_SCAN_SPEED_MM_S);
+                break;
+
+            case ST_DEPOSIT_TRACK:
+                if (Fault_B1_Wheeldrop()) {
+                    change_to(ST_FAULT);
+                    break;
+                }
+                Scan_Sample();
+                Deposit_Track_Sample();
+                if (Deposit_Marker_Lost()) {
+                    change_to(ST_DEPOSIT_EDGE_SCAN);
+                    break;
+                }
+                Kobuki_Rotate(DEPOSIT_SCAN_SPEED_MM_S);
+                break;
+
+            case ST_DEPOSIT_EDGE_SCAN:
+                if (Fault_B1_Wheeldrop()) {
+                    change_to(ST_FAULT);
+                    break;
+                }
+                Scan_Sample();
+                Deposit_Edge_Sample();
+                if (Deposit_Edge_Done()) {
+                    robot.centre_deg = (int16_t)((robot.edge_start + robot.edge_end) / 2);
+                    change_to(ST_DEPOSIT_ALIGN);
+                    break;
+                }
+                Kobuki_Rotate(-DEPOSIT_SCAN_SPEED_MM_S);
+                break;
+
+            case ST_DEPOSIT_ALIGN:
+                if (Fault_B1_Wheeldrop()) {
+                    change_to(ST_FAULT);
+                    break;
+                }
+                if (robot.kobuki.rotation_complete != 0) {
+                    change_to(ST_MEASURE);
+                    break;
+                }
+                Kobuki_Rotate_Angle(robot.kobuki.angle);
+                break;
+
+            case ST_MEASURE:
+                if (Fault_B1_Wheeldrop()) {
+                    change_to(ST_FAULT);
+                    break;
+                }
+                if (!Measure_Take_Reading()) {
+                    break;
+                }
+                if (robot.reading < DEPOSIT_BLIND_MM) {
+                    change_to((robot.backoffs < DEPOSIT_BACKOFF_MAX) ? ST_DEPOSIT_BACKOFF : ST_IDLE);
+                    break;
+                }
+                change_to((robot.drive_mm == 0) ? ST_IDLE : ST_DEPOSIT_DRIVE);
+                break;
+
+            case ST_DEPOSIT_BACKOFF:
+                if (Fault_B1_Wheeldrop()) {
+                    change_to(ST_FAULT);
+                    break;
+                }
+                if (robot.kobuki.distance_complete != 0) {
+                    change_to(ST_MEASURE);
+                    break;
+                }
+                Kobuki_Drive_Distance(robot.kobuki.distance);
+                break;
+
+            case ST_DEPOSIT_DRIVE:
+                if (Fault_B1_Wheeldrop()) {
+                    change_to(ST_FAULT);
+                    break;
+                }
+                if (robot.drive_mm > 0 && robot.kobuki.bumper != 0) {
+                    Kobuki_Drive(STOP);
+                    change_to(ST_IDLE);
+                    break;
+                }
+                if (robot.kobuki.distance_complete != 0) {
+                    change_to(ST_IDLE);
+                    break;
+                }
+                Kobuki_Drive_Distance(robot.kobuki.distance);
                 break;
 
             case ST_FAULT:
