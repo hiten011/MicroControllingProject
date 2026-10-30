@@ -37,6 +37,10 @@ _Avoid_: door, gap
 One of the two spots inside the storage unit (1 or 2) where the parcel must be delivered, with the centre of the AMU facing it. It is independent of the Layout: all four combinations of bollards and deposit location can occur.
 _Avoid_: drop point, bay
 
+**Deposit marker**:
+The blue, bollard-sized (90 mm) marker that stands at the Deposit location. The AMU finds it with the ultrasonic, faces its centre and stops a set gap short of it. Only one of the two Deposit locations has one.
+_Avoid_: Bollard (that is an orange blocker), target, spot, deposit bollard
+
 ### Finding the layout
 
 **Search** (phase):
@@ -108,7 +112,7 @@ The State at the end of the second corridor: the AMU stops once, ending Pathfind
 _Avoid_: Front-cliff stop, pathfind done, arrival
 
 **Storage** (phase):
-The phase in which the AMU faces the entrance, drives into the storage unit, and finishes at the Deposit State. It spans Turn, Drive-in and Deposit.
+The phase in which the AMU faces the entrance and drives into the storage unit. It spans Turn and Drive-in, and ends when Drive-in enters the Deposit phase.
 _Avoid_: STORAGE when the storage unit itself is meant
 
 **Turn** (Storage):
@@ -116,12 +120,66 @@ The State in which the AMU turns on the spot from the second-corridor heading to
 _Avoid_: face-entrance, Rotate (Pathfind)
 
 **Drive-in**:
-The State in which the AMU drives a fixed distance through the Entrance into the storage unit. Any bumper ends it early, in Deposit.
+The State in which the AMU drives a fixed distance through the Entrance into the storage unit. Any bumper ends it early. Either way it enters Deposit search.
 _Avoid_: enter, DRIVE_IN (code id), Drive (already the Pathfind State)
 
-**Deposit** (State):
-The State after Drive-in in which the AMU stops inside the storage unit. Deposit-location sensing is not part of this State yet.
+### Depositing
+
+**Deposit** (phase):
+The phase in which the AMU finds the Deposit marker, faces its centre and moves to the Deposit gap from it. It spans Deposit search, Deposit track, Deposit edge scan, Deposit align, Measure, Deposit backoff and Deposit drive, and ends in Idle. It never gives up, and only B1 or a wheel drop sends it to Fault.
 _Avoid_: DEPOSIT (code id), drop-off (the place is Deposit location)
+
+**Deposit search**:
+The State in which the AMU turns anticlockwise on the spot, reading the ultrasonic every Tick, until a reading is within the Deposit detection range (500 mm). It never gives up.
+_Avoid_: Search (that is the layout-finding State), Scan
+
+**Deposit detection range**:
+The range in millimetres (500) within which a reading counts as the Deposit marker. It is tighter than the Detection range (750) that Search uses.
+_Avoid_: Detection (that is the 750 mm Search term), threshold
+
+**Lost angle**:
+The turn in degrees (10) the AMU makes past the last reading of the Deposit marker before it decides it has gone past it. Deposit track and Deposit edge scan both use it.
+_Avoid_: margin, overshoot
+
+**Edge band**:
+How far beyond the closest reading, in millimetres (60), a reading may be and still count as an edge of the Deposit marker in Deposit edge scan.
+_Avoid_: tolerance, window
+
+**Deposit track**:
+The State in which the AMU keeps turning anticlockwise over the Deposit marker, recording the closest reading, until the marker has been lost for the lost angle.
+_Avoid_: Follow
+
+**Deposit edge scan**:
+The State in which the AMU turns slowly clockwise back across the Deposit marker. Readings within the edge band of the closest reading mark where it starts and ends, and the middle of those two is the Centre heading.
+_Avoid_: Sweep, Detect
+
+**Deposit align**:
+The State in which the AMU turns from where Deposit edge scan stopped to the Centre heading.
+_Avoid_: centre-up, correct heading
+
+**Centre heading**:
+The heading at which the AMU faces the middle of the Deposit marker.
+_Avoid_: target heading, bearing, heading (alone)
+
+**Measure**:
+The State in which the AMU stops on the Centre heading and takes the median of five ultrasonic readings as its distance to the Deposit marker. It sends the AMU to Deposit backoff, Deposit drive or Idle.
+_Avoid_: Ping, sample, Detect
+
+**Blind zone**:
+The range inside which the ultrasonic cannot say how far an object is, because it reads about 300 mm for anything nearer. A reading under the blind limit (320 mm) means the Deposit marker is too close to know its distance.
+_Avoid_: dead zone, minimum range
+
+**Deposit backoff**:
+The State in which the AMU reverses a fixed 150 mm straight back along the Centre heading, then returns to Measure, so the Deposit marker can leave the Blind zone. It runs at most five times; after that a Blind zone reading in Measure ends in Idle.
+_Avoid_: Reverse (the storage-wall and ledge recovery), Corridor reverse, back-off
+
+**Deposit drive**:
+The State in which the AMU drives the signed distance Measure worked out, forward or in reverse, and ends in Idle. A bumper ends a forward drive early.
+_Avoid_: Drive (the Pathfind State), Drive-in, DEPOSIT_DRIVE (code id)
+
+**Deposit gap**:
+The distance, 100 mm, between the front of the AMU and the surface of the Deposit marker when the AMU stops. The brief asks for "100 mm away" and gives no tolerance.
+_Avoid_: stand-off, clearance, distance (alone)
 
 ### Running the FSM
 
