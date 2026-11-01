@@ -23,7 +23,7 @@
 
 // Orient: Layout A turns CW to the bottom corridor; Layout B turns ACW to the left corridor.
 #define ORIENT_A_DEG (-75)
-#define ORIENT_B_DEG (110)
+#define ORIENT_B_DEG (108)
 
 #define PATHFIND_DRIVE_SPEED  150
 #define PATHFIND_CORNER_A_DEG 90
@@ -32,8 +32,8 @@
 #define PATHFIND_ROTATE_A_DEG (-5)
 #define PATHFIND_ROTATE_B_DEG 5
 
-#define STORAGE_TURN_A_DEG  135
-#define STORAGE_TURN_B_DEG  (-135)
+#define STORAGE_TURN_A_DEG  131
+#define STORAGE_TURN_B_DEG  (-131)
 #define STORAGE_DRIVE_IN_MM 900
 
 typedef enum { LAYOUT_NONE, LAYOUT_A, LAYOUT_B } Layout;
