@@ -6,50 +6,57 @@
 #include "kobuki.h"
 #include "ultrasonic.h"
 
-#define BUTTON_B0 0x01U
-#define BUTTON_B1 0x02U
+// Kobuki button bits: B0 starts a run, B1 is the emergency stop.
+#define KOBUKI_BUTTON_B0_MASK 0x01U
+#define KOBUKI_BUTTON_B1_MASK 0x02U
 
-#define SIDE_RIGHT  0x01U
-#define SIDE_CENTRE 0x02U
-#define SIDE_LEFT   0x04U
-#define SIDE_ANY    (SIDE_RIGHT | SIDE_CENTRE | SIDE_LEFT)
+// Bumper and cliff side bits.
+#define KOBUKI_SIDE_RIGHT_MASK  0x01U
+#define KOBUKI_SIDE_CENTRE_MASK 0x02U
+#define KOBUKI_SIDE_LEFT_MASK   0x04U
+#define KOBUKI_SIDE_ALL_MASK    (KOBUKI_SIDE_RIGHT_MASK | KOBUKI_SIDE_CENTRE_MASK | KOBUKI_SIDE_LEFT_MASK)
 
-// Scan angles are degrees from the heading at B0, anticlockwise positive.
-#define SCAN_FULL_DEG   360
-#define SCAN_SPEED_MM_S 150
+// Search spin: give up after a full turn (degrees from the heading at B0, anticlockwise positive).
+#define SCAN_FULL_TURN_DEG     360
+#define SCAN_ROTATE_SPEED_MM_S 150
 
 // The first reading on a bollard is under this for Layout B (the nearer bollard), otherwise Layout A.
-#define LAYOUT_B_MAX_MM 575U
+#define LAYOUT_B_MAX_RANGE_MM 575U
 
 // Orient: Layout A turns CW to the bottom corridor; Layout B turns ACW to the left corridor.
-#define ORIENT_A_DEG (-75)
-#define ORIENT_B_DEG (108)
+#define ORIENT_TURN_LAYOUT_A_DEG (-75)
+#define ORIENT_TURN_LAYOUT_B_DEG (108)
 
-#define PATHFIND_DRIVE_SPEED  150
-#define PATHFIND_CORNER_A_DEG 90
-#define PATHFIND_CORNER_B_DEG (-90)
-#define PATHFIND_REVERSE_MM   50
-#define PATHFIND_ROTATE_A_DEG (-5)
-#define PATHFIND_ROTATE_B_DEG 5
+// Pathfind: drive speed, corridor corner turns, and the reverse-then-turn recovery after a wall or ledge hit.
+#define PATHFIND_DRIVE_SPEED_MM_S          150
+#define PATHFIND_CORNER_TURN_LAYOUT_A_DEG  90
+#define PATHFIND_CORNER_TURN_LAYOUT_B_DEG  (-90)
+#define PATHFIND_REVERSE_MM                50
+#define PATHFIND_RECOVER_TURN_LAYOUT_A_DEG (-5)
+#define PATHFIND_RECOVER_TURN_LAYOUT_B_DEG 5
 
-#define STORAGE_TURN_A_DEG  131
-#define STORAGE_TURN_B_DEG  (-131)
-#define STORAGE_DRIVE_IN_MM 900
+// Storage: turn to face the storage unit, then drive in.
+#define STORAGE_TURN_LAYOUT_A_DEG 131
+#define STORAGE_TURN_LAYOUT_B_DEG (-131)
+#define STORAGE_DRIVE_IN_MM       900
 
+// Which test-area layout was identified.
 typedef enum { LAYOUT_NONE, LAYOUT_A, LAYOUT_B } Layout;
 
+// All run-time state shared between main.c and the helper functions.
 typedef struct {
     Kobuki_Typedef kobuki;
     US_Typedef object;
     Layout layout;
     int16_t heading;
-    uint8_t corridor;
-    int16_t pathfind_recover_deg;
-    int16_t scan_prev_angle;
-    int32_t scan_ticks;
-    int16_t scan_deg;
+    uint8_t corridor;              // 1 = first corridor, 2 = second
+    int16_t pathfind_recover_deg;  // turn to apply after the Reverse
+    int16_t scan_prev_angle;       // last gyro reading, for the wrap-safe turn sum
+    int32_t scan_ticks;            // total turn in 0.01 deg gyro ticks
+    int16_t scan_deg;              // total turn in degrees
 } RobotData;
 
+// The one global RobotData instance.
 extern RobotData robot;
 
 // B1 pressed or a wheel dropped.
@@ -58,7 +65,7 @@ bool Fault_B1_Wheeldrop(void);
 // B1, wheeldrop, any bumper or any cliff.
 bool Fault_Any(void);
 
-// Layout B when range_mm is under LAYOUT_B_MAX_MM, otherwise Layout A.
+// Layout B when range_mm is under LAYOUT_B_MAX_RANGE_MM, otherwise Layout A.
 Layout Layout_From_Range(uint16_t range_mm);
 
 // a_deg when the Layout is A, otherwise b_deg.

@@ -56,7 +56,7 @@ The State in which the AMU stops on the first Detection and compares that readin
 _Avoid_: Detect, Classify, Ping, sample
 
 **Layout split**:
-The range in millimetres (`LAYOUT_B_MAX_MM`) that separates Layout B from Layout A, compared with the first Detection. It is a calibration value, measured with the real sensor in place; it needs re-measuring if the sensor moves.
+The range in millimetres (`LAYOUT_B_MAX_RANGE_MM`) that separates Layout B from Layout A, compared with the first Detection. It is a calibration value, measured with the real sensor in place; it needs re-measuring if the sensor moves.
 _Avoid_: threshold, LAYOUT_SPLIT, band
 
 ### Facing the corridor
