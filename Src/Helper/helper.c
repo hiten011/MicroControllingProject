@@ -1,20 +1,22 @@
 #include "helper.h"
 
+// Shared run-time state.
 RobotData robot;
 
 bool Fault_B1_Wheeldrop(void)
 {
-    return (robot.kobuki.button & BUTTON_B1) != 0 || robot.kobuki.wheeldrop != 0;
+    return (robot.kobuki.button & KOBUKI_BUTTON_B1_MASK) != 0 || robot.kobuki.wheeldrop != 0;
 }
 
 bool Fault_Any(void)
 {
-    return Fault_B1_Wheeldrop() || robot.kobuki.bumper != 0 || Kobuki_IsCliffDetected(&robot.kobuki, SIDE_ANY);
+    return Fault_B1_Wheeldrop() || robot.kobuki.bumper != 0 ||
+           Kobuki_IsCliffDetected(&robot.kobuki, KOBUKI_SIDE_ALL_MASK);
 }
 
 Layout Layout_From_Range(uint16_t range_mm)
 {
-    if (range_mm < LAYOUT_B_MAX_MM) {
+    if (range_mm < LAYOUT_B_MAX_RANGE_MM) {
         return LAYOUT_B;
     }
     return LAYOUT_A;
@@ -36,6 +38,7 @@ void Scan_Update_Turn(int16_t angle_tick)
 {
     int32_t diff = (int32_t)angle_tick - robot.scan_prev_angle;
 
+    // The gyro wraps at +-18000 ticks, so fold a jump of more than half a turn back.
     if (diff > 18000) {
         diff -= 36000;
     } else if (diff < -18000) {
@@ -44,6 +47,7 @@ void Scan_Update_Turn(int16_t angle_tick)
     robot.scan_prev_angle = angle_tick;
     robot.scan_ticks += diff;
 
+    // Round to the nearest degree (100 ticks per degree), away from zero.
     if (robot.scan_ticks >= 0) {
         robot.scan_deg = (int16_t)((robot.scan_ticks + 50) / 100);
     } else {
@@ -59,27 +63,30 @@ void Scan_Sample(void)
 
 bool Scan_Gave_Up(void)
 {
-    return robot.scan_deg >= SCAN_FULL_DEG;
+    return robot.scan_deg >= SCAN_FULL_TURN_DEG;
 }
 
 bool Corridor_Take_Wall_Hit(uint8_t bumper)
 {
-    uint8_t wall_mask = (robot.layout == LAYOUT_A) ? SIDE_LEFT : SIDE_RIGHT;
+    // The storage wall is on the left in Layout A and on the right in Layout B.
+    uint8_t wall_mask = (robot.layout == LAYOUT_A) ? KOBUKI_SIDE_LEFT_MASK : KOBUKI_SIDE_RIGHT_MASK;
 
     if ((bumper & wall_mask) == 0) {
         return false;
     }
-    robot.pathfind_recover_deg = Layout_Pick(PATHFIND_ROTATE_A_DEG, PATHFIND_ROTATE_B_DEG);
+    robot.pathfind_recover_deg = Layout_Pick(PATHFIND_RECOVER_TURN_LAYOUT_A_DEG, PATHFIND_RECOVER_TURN_LAYOUT_B_DEG);
     return true;
 }
 
 bool Corridor_Take_Ledge_Hit(const Kobuki_Typedef *kobuki)
 {
-    uint8_t ledge_mask = (robot.layout == LAYOUT_A) ? SIDE_RIGHT : SIDE_LEFT;
+    // The ledge is on the right in Layout A and on the left in Layout B.
+    uint8_t ledge_mask = (robot.layout == LAYOUT_A) ? KOBUKI_SIDE_RIGHT_MASK : KOBUKI_SIDE_LEFT_MASK;
 
     if (!Kobuki_IsCliffDetected(kobuki, ledge_mask)) {
         return false;
     }
-    robot.pathfind_recover_deg = (int16_t)(-Layout_Pick(PATHFIND_ROTATE_A_DEG, PATHFIND_ROTATE_B_DEG));
+    robot.pathfind_recover_deg =
+        (int16_t)(-Layout_Pick(PATHFIND_RECOVER_TURN_LAYOUT_A_DEG, PATHFIND_RECOVER_TURN_LAYOUT_B_DEG));
     return true;
 }
