@@ -120,7 +120,7 @@ The State in which the AMU drives a fixed distance through the Entrance into the
 _Avoid_: enter, DRIVE_IN (code id), Drive (already the Pathfind State)
 
 **Deposit** (State):
-The State after Drive-in in which the AMU turns anticlockwise through a full 360°, remembers the closest valid ultrasonic target and its gyro heading (the coarse heading), then enters Deposit align. With no valid echo, it lights LED 1 red and stops in Idle. With `DEPOSIT_TEST_MODE = 1`, it also runs automatically on boot and on B0 from Idle.
+The State after Drive-in in which the AMU turns anticlockwise through a full 360°, remembers the closest valid ultrasonic target and its gyro heading (the coarse heading), then enters Deposit align. With no valid echo, it lights LED 1 red and stops in Idle.
 _Avoid_: DEPOSIT (code id), drop-off (the place is Deposit location)
 
 **Deposit align**:
@@ -141,7 +141,7 @@ The State that moves forward at 35 mm/s until the ultrasonic reads at most the t
 ### Running the FSM
 
 **Idle**:
-The State in which the AMU holds still until B0 (start) is pressed. It is the first State, and the State every run returns to. Leaving it forgets the last Search and starts a new one in Search, or a fresh Deposit scan when `DEPOSIT_TEST_MODE = 1`.
+The State in which the AMU holds still until B0 (start) is pressed. It is the first State, and the State every run returns to. Leaving it forgets the last Search and starts a new one in Search.
 _Avoid_: Standby, Ready, IDLE (code id)
 
 **Fault**:

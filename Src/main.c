@@ -124,21 +124,15 @@ int main(void)
     ADC_Init();
     Ultrasonic_Init();
 
-    if (DEPOSIT_TEST_MODE) {
-        // Take the initial gyro heading from real feedback before the test scan starts.
-        Kobuki_Read(&robot.kobuki);
-        change_to(ST_DEPOSIT);
-    }
-
     while (1) {
         // Blocks until the next packet, which paces the loop.
         Kobuki_Read(&robot.kobuki);
 
         switch (state) {
-            // Wait for B0, staying stopped. In Deposit test mode B0 repeats the Deposit scan instead of Search.
+            // Wait for B0, staying stopped.
             case ST_IDLE:
                 if ((robot.kobuki.button & KOBUKI_BUTTON_B0_MASK) != 0) {
-                    change_to(DEPOSIT_TEST_MODE ? ST_DEPOSIT : ST_SEARCH);
+                    change_to(ST_SEARCH);
                     break;
                 }
                 Kobuki_Drive(STOP);
