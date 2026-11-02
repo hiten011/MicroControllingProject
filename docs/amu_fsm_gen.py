@@ -10,9 +10,9 @@ source and target. Edge labels are placed beside a chosen segment. The layout
 is therefore exact and reproducible, and a code change is a small diff here.
 
 When Src/main.c or Src/Helper/helper.h changes, edit the matching State body,
-edge or constant below, regenerate, then run 
-to confirm the diagram still matches the code. Export the PNG from draw.io
-(File > Export as > PNG, zoom 200%, border 20) to refresh amu_fsm_preview.png.
+edge or constant below, regenerate, then run docs/amu_fsm_check.py
+to confirm the diagram still matches the code. Then run docs/amu_fsm_render.js to
+refresh amu_fsm_preview.png (or export it from draw.io: File > Export as > PNG, zoom 200%, border 20).
 
 Optional: Pillow, used to measure label widths when placing labels. Without
 it the widths are estimated.
@@ -224,7 +224,11 @@ def edge(eid, src, tgt, pts, color=BLACK, lines=None, seg=0, side="above", gap=4
 
 
 # =================================================================== LAYOUT
-PAGE_W, PAGE_H = 1960, 1740
+# Reading order is clockwise: row 1 runs left to right (IDLE, SEARCH, IDENTIFY, ORIENT), PATHFIND runs
+# right to left, STORAGE runs bottom to top back to IDLE. STOP / FAULT sits in the middle as a shared
+# sink with every fault edge short and vertical. Row 1 is centre-aligned on y = ROW1.
+PAGE_W, PAGE_H = 1980, 1740
+ROW1 = 250
 
 plain("title", 40, 20, 900, 30, "<b>AMU parcel-run FSM</b>", size=20, color="#000000")
 plain("subtitle", 40, 52, 1800, 18,
@@ -233,43 +237,47 @@ plain("subtitle", 40, 52, 1800, 18,
       size=11, color="#555555")
 
 # ---- composites (drawn first so states sit on top)
-composite("search_phase", 440, 130, 800, 200, "SEARCH (phase)")
+composite("search_phase", 440, 140, 790, 190, "SEARCH (phase)")
 composite("storage", 40, 620, 500, 660, "STORAGE")
-composite("pathfind", 600, 620, 1310, 660, "PATHFIND")
+composite("pathfind", 580, 620, 1380, 660, "PATHFIND")
 
 # ---- initial pseudo-state and IDLE
-box("start", "1", 152, 100, 16, 16)
+box("start", "1", 152, 124, 16, 16)
 add(1, '<mxCell id="start" value="" style="ellipse;html=1;fillColor=#000000;strokeColor=#000000;" vertex="1" '
-       'parent="1"><mxGeometry x="152" y="100" width="16" height="16" as="geometry"/></mxCell>')
+       'parent="1"><mxGeometry x="152" y="124" width="16" height="16" as="geometry"/></mxCell>')
 
-state("idle", "1", 40, 168, 240, "IDLE", [
+state("idle", "1", 40, 180, 240, "IDLE", [
     "do / Kobuki_Drive(STOP)",
     "exit / layout = none",
     "       object.detected = 0",
     "       heading = 0",
     "       corridor = 0",
-    "       Scan_Start(kobuki.angle)"], hgt=134)
+    "       Scan_Start(kobuki.angle)"], hgt=140)
 
 # ---- SEARCH phase
-state("search", "search_phase", 470, 200, 260, "SEARCH", [
+state("search", "search_phase", 470, 210, 260, "SEARCH", [
     "do / Scan_Sample()",
-    "     Kobuki_Rotate(150)  // ACW"], hgt=70)
-state("identify", "search_phase", 900, 200, 300, "IDENTIFY", [
-    "entry / Kobuki_Drive(STOP)"], hgt=70)
+    "     Kobuki_Rotate(150)  // ACW"], hgt=80)
+state("identify", "search_phase", 900, 190, 300, "IDENTIFY", [
+    "entry / Kobuki_Drive(STOP)",
+    "do / layout = Layout_From_Range(",
+    "         object.range_mm)",
+    "     Kobuki_Update_LEDs(",
+    "         A: RED, B: YELLOW, OFF)"], hgt=120)
 
 # ---- ORIENT
-state("orient", "1", 1390, 180, 300, "ORIENT", [
+state("orient", "1", 1480, 190, 300, "ORIENT", [
     "entry / Kobuki_Rotate_Angle_Setpoint(",
     "         kobuki.angle, A: -75, B: +108)",
     "         // A: CW, B: ACW",
-    "do / Kobuki_Rotate_Angle(kobuki.angle)"], hgt=110)
+    "do / Kobuki_Rotate_Angle(kobuki.angle)"], hgt=120)
 
-# ---- FAULT bar
-state("fault", "1", 440, 440, 1030, "STOP / FAULT", [
+# ---- FAULT bar (left edge aligned with the SEARCH phase, right edge short of the ORIENT -> DRIVE edge)
+state("fault", "1", 440, 440, 1150, "STOP / FAULT", [
     "entry / Kobuki_Drive(STOP)"], kind="fault", hgt=54)
 
-# ---- PATHFIND
-state("p_drive", "pathfind", 1380, 700, 320, "DRIVE", [
+# ---- PATHFIND: three columns, C1 x=640, C2 x=950, C3 x=1470, vertical gaps 80 px
+state("p_drive", "pathfind", 1470, 700, 320, "DRIVE", [
     "do / Kobuki_Drive(150)",
     "     // at the speed limit"], hgt=80)
 
@@ -282,22 +290,22 @@ state("p_creverse", "pathfind", 950, 840, 320, "CORRIDOR_REVERSE", [
     "         kobuki.distance, -50)",
     "do / Kobuki_Drive_Distance(kobuki.distance)",
     "// bumper and cliff are ignored here"], hgt=94)
-state("p_cturn", "pathfind", 950, 1010, 320, "CORRIDOR_TURN", [
+state("p_cturn", "pathfind", 950, 1014, 320, "CORRIDOR_TURN", [
     "entry / Kobuki_Rotate_Angle_Setpoint(",
     "         kobuki.angle, A: +90, B: -90)",
     "         // A: ACW, B: CW",
     "do / Kobuki_Rotate_Angle(kobuki.angle)",
     "exit / heading = kobuki.angle",
     "// bumper and cliff are ignored here"], hgt=124)
-state("p_cstop", "pathfind", 650, 1094, 240, "CORRIDOR_STOP", [
+state("p_cstop", "pathfind", 640, 1084, 240, "CORRIDOR_STOP", [
     "entry / Kobuki_Drive(STOP)"], hgt=54)
 
-state("p_reverse", "pathfind", 1380, 930, 320, "REVERSE", [
+state("p_reverse", "pathfind", 1470, 930, 320, "REVERSE", [
     "entry / Kobuki_Drive_Distance_Setpoint(",
     "         kobuki.distance, -50)",
     "do / Kobuki_Drive_Distance(kobuki.distance)",
     "// bumper and cliff are ignored here"], hgt=94)
-state("p_rotate", "pathfind", 1380, 1090, 320, "ROTATE", [
+state("p_rotate", "pathfind", 1470, 1104, 320, "ROTATE", [
     "entry / Kobuki_Rotate_Angle_Setpoint(",
     "         kobuki.angle, pathfind_recover_deg)",
     "         // latched in DRIVE: wall A -5, B +5;",
@@ -305,13 +313,13 @@ state("p_rotate", "pathfind", 1380, 1090, 320, "ROTATE", [
     "do / Kobuki_Rotate_Angle(kobuki.angle)",
     "// bumper and cliff are ignored here"], hgt=124)
 
-note("pathfind_note", "pathfind", 640, 1196, 660, 58, [
+note("pathfind_note", "pathfind", 640, 1186, 630, 58, [
     "Runs twice: corridor = 1 ends in CORRIDOR_REVERSE, then CORRIDOR_TURN; corridor = 2 ends in "
     "CORRIDOR_STOP. A corridor ends on the front cliff, not on distance. DRIVE ignores the ledge-side "
     "bumper and the storage-wall-side cliff; REVERSE, ROTATE and the CORRIDOR_ States ignore bumper and "
     "cliff. Only B1 | wheeldrop faults here."])
 
-# ---- STORAGE
+# ---- STORAGE: one column x=90, vertical gaps 100 px
 state("deposit", "storage", 90, 690, 400, "DEPOSIT (stub)", [
     "entry / Kobuki_Drive(STOP)",
     "// stub: deposit-location sensing",
@@ -321,70 +329,70 @@ state("drive_in", "storage", 90, 870, 400, "DRIVE_IN", [
     "         kobuki.distance, 900)",
     "         // through the Entrance",
     "do / Kobuki_Drive_Distance(kobuki.distance)"], hgt=94)
-state("turn", "storage", 90, 1074, 400, "TURN", [
+state("turn", "storage", 90, 1064, 400, "TURN", [
     "entry / Kobuki_Rotate_Angle_Setpoint(",
     "         kobuki.angle, A: +131, B: -131)",
     "         // A: ACW, B: CW (face the Entrance)",
     "do / Kobuki_Rotate_Angle(kobuki.angle)"], hgt=94)
-note("storage_note", "storage", 70, 1200, 460, 46, [
+note("storage_note", "storage", 90, 1196, 400, 46, [
     "TURN ignores bumper and cliff (the turn is made beside the ledge). DRIVE_IN ignores the cliff; "
     "any bumper ends it in DEPOSIT. Only B1 | wheeldrop faults here."])
 
 # ===================================================================== EDGES
+# Label rule: a label sits beside its edge, above a horizontal segment and to the right of a vertical one.
 # main flow: start -> IDLE -> SEARCH -> IDENTIFY -> ORIENT -> DRIVE -> ...
-edge("e_start", "start", "idle", [(160, 116), (160, 168)])
-edge("e_idle_search", "idle", "search", [(280, 235), (470, 235)],
-     lines=["B0", "[kobuki.button & 0x01]"], seg=0, side="above", shift=-20)
-edge("e_search_identify", "search", "identify", [(730, 235), (900, 235)],
+edge("e_start", "start", "idle", [(160, 140), (160, 180)])
+edge("e_idle_search", "idle", "search", [(280, ROW1), (470, ROW1)],
+     lines=["B0", "[kobuki.button & 0x01]"], seg=0, side="above")
+edge("e_search_identify", "search", "identify", [(730, ROW1), (900, ROW1)],
      lines=["1: [object.detected != 0]"], seg=0, side="above")
-edge("e_identify_orient", "identify", "orient", [(1200, 235), (1390, 235)],
-     lines=["ε", "/ layout = A | B", "LED1 red | yellow"], seg=0, side="above", shift=20)
-edge("e_orient_drive", "orient", "p_drive", [(1540, 290), (1540, 700)],
-     lines=["kobuki.rotation_complete", "/ heading = kobuki.angle,", "corridor = 1"], seg=0, side="right",
-     gap=8, shift=-60)
+edge("e_identify_orient", "identify", "orient", [(1200, ROW1), (1480, ROW1)],
+     lines=["ε"], seg=0, side="above")
+edge("e_orient_drive", "orient", "p_drive", [(1630, 310), (1630, 700)],
+     lines=["kobuki.rotation_complete", "/ heading = kobuki.angle,", "corridor = 1"], seg=0, side="right", gap=8)
 
 # fault edges (red)
-edge("f_search_phase", "search_phase", "fault", [(1000, 330), (1000, 440)], color=RED, sw=1.25,
+edge("f_search_giveup", "search", "fault", [(600, 290), (600, 440)], color=RED, sw=1.25,
+     lines=["2: [scan_deg >= 360]", "/ LED1 green"], seg=0, side="right", gap=8)
+edge("f_search_phase", "search_phase", "fault", [(840, 330), (840, 440)], color=RED, sw=1.25,
      lines=["B1 | wheeldrop", "| bumper | cliff"], seg=0, side="right", gap=8)
-edge("f_search_giveup", "search", "fault", [(600, 270), (600, 440)], color=RED, sw=1.25,
-     lines=["2: [scan_deg >= 360]", "/ LED1 green"], seg=0, side="right", gap=8, shift=30)
-edge("f_orient", "orient", "fault", [(1420, 290), (1420, 440)], color=RED, sw=1.25,
-     lines=["B1 | wheeldrop", "| bumper | cliff"], seg=0, side="left", gap=8, shift=20)
+edge("f_orient", "orient", "fault", [(1510, 310), (1510, 440)], color=RED, sw=1.25,
+     lines=["B1 | wheeldrop", "| bumper | cliff"], seg=0, side="right", gap=8)
 edge("f_pathfind", "pathfind", "fault", [(1300, 620), (1300, 494)], color=RED, sw=1.25,
-     lines=["B1 | wheeldrop"], seg=0, side="left", gap=8)
-edge("f_storage", "storage", "fault", [(500, 620), (500, 494)], color=RED, sw=1.25,
-     lines=["B1 | wheeldrop"], seg=0, side="left", gap=8)
+     lines=["B1 | wheeldrop"], seg=0, side="right", gap=8)
+edge("f_storage", "storage", "fault", [(490, 620), (490, 494)], color=RED, sw=1.25,
+     lines=["B1 | wheeldrop"], seg=0, side="right", gap=8)
 
 # returns to IDLE
-edge("e_fault_idle", "fault", "idle", [(440, 467), (240, 467), (240, 302)],
+edge("e_fault_idle", "fault", "idle", [(440, 467), (200, 467), (200, 320)],
      lines=["ε"], seg=0, side="above", gap=4)
-edge("e_deposit_idle", "deposit", "idle", [(120, 690), (120, 302)],
-     lines=["ε", "(stub: at once)"], seg=0, side="right", gap=8, shift=50)
+edge("e_deposit_idle", "deposit", "idle", [(120, 690), (120, 320)],
+     lines=["ε", "(stub: at once)"], seg=0, side="right", gap=8, shift=55)
 
 # PATHFIND
-edge("p_drive_choice", "p_drive", "p_choice", [(1380, 720), (1124, 720)],
+edge("p_drive_choice", "p_drive", "p_choice", [(1470, 720), (1124, 720)],
      lines=["1: front cliff", "[kobuki.cliff & 0x02]"], seg=0, side="above")
 edge("p_choice_creverse", "p_choice", "p_creverse", [(1110, 734), (1110, 840)],
      lines=["[corridor == 1]"], seg=0, side="right", gap=8)
-edge("p_choice_stop", "p_choice", "p_cstop", [(1096, 720), (770, 720), (770, 1094)],
+edge("p_choice_stop", "p_choice", "p_cstop", [(1096, 720), (760, 720), (760, 1084)],
      lines=["[corridor == 2]"], seg=0, side="above")
-edge("p_creverse_cturn", "p_creverse", "p_cturn", [(1110, 934), (1110, 1010)],
+edge("p_creverse_cturn", "p_creverse", "p_cturn", [(1110, 934), (1110, 1014)],
      lines=["kobuki.distance_complete"], seg=0, side="right", gap=8)
-edge("p_cturn_drive", "p_cturn", "p_drive", [(1270, 1072), (1320, 1072), (1320, 760), (1380, 760)],
-     lines=["kobuki.rotation_complete", "/ corridor = 2"], seg=1, side="right", gap=8, shift=-120)
-edge("p_drive_reverse", "p_drive", "p_reverse", [(1600, 780), (1600, 930)],
+edge("p_cturn_drive", "p_cturn", "p_drive", [(1270, 1076), (1330, 1076), (1330, 760), (1470, 760)],
+     lines=["kobuki.rotation_complete", "/ corridor = 2"], seg=1, side="right", gap=8)
+edge("p_drive_reverse", "p_drive", "p_reverse", [(1630, 780), (1630, 930)],
      lines=["2: storage-wall bumper", "[A: kobuki.bumper & 0x04,", " B: kobuki.bumper & 0x01]",
             "/ recover = A -5 | B +5", " ", "3: ledge cliff", "[A: kobuki.cliff & 0x01,",
             " B: kobuki.cliff & 0x04]", "/ recover = A +5 | B -5"], seg=0, side="right", gap=10)
-edge("p_reverse_rotate", "p_reverse", "p_rotate", [(1540, 1024), (1540, 1090)],
+edge("p_reverse_rotate", "p_reverse", "p_rotate", [(1630, 1024), (1630, 1104)],
      lines=["kobuki.distance_complete"], seg=0, side="right", gap=8)
-edge("p_rotate_drive", "p_rotate", "p_drive", [(1700, 1152), (1850, 1152), (1850, 740), (1700, 740)],
-     lines=["kobuki.", "rotation_complete"], seg=1, side="left", gap=8, shift=100)
-edge("p_stop_turn", "p_cstop", "turn", [(650, 1121), (490, 1121)],
+edge("p_rotate_drive", "p_rotate", "p_drive", [(1790, 1166), (1900, 1166), (1900, 740), (1790, 740)],
+     lines=["kobuki.", "rotation_complete"], seg=0, side="above", gap=6)
+edge("p_stop_turn", "p_cstop", "turn", [(640, 1111), (490, 1111)],
      lines=["ε"], seg=0, side="above")
 
 # STORAGE
-edge("e_turn_drivein", "turn", "drive_in", [(290, 1074), (290, 964)],
+edge("e_turn_drivein", "turn", "drive_in", [(290, 1064), (290, 964)],
      lines=["kobuki.rotation_complete"], seg=0, side="right", gap=8)
 edge("e_drivein_deposit_bump", "drive_in", "deposit", [(140, 870), (140, 770)],
      lines=["1: any bumper", "[kobuki.bumper != 0]", "/ Kobuki_Drive(STOP)"], seg=0, side="right", gap=8)
@@ -407,7 +415,7 @@ for i, (cid, label, fill, stroke, dash) in enumerate([
         ("lg_fa", "fault", "#f8cecc", RED, ""),
         ("lg_su", "composite (phase)", "#eeeeee", "#666666", ""),
         ("lg_stub", "stub", "#ffffff", BLACK, "dashed=1;dashPattern=5 3;")]):
-    x = [660, 770, 880, 1080][i]
+    x = [660, 770, 880, 1070][i]
     w = [90, 90, 170, 90][i]
     add(1, '<mxCell id="%s" value="%s" style="rounded=1;absoluteArcSize=1;arcSize=12;html=1;fontSize=11;'
            'fontFamily=Helvetica;fillColor=%s;strokeColor=%s;strokeWidth=1.5;%s" vertex="1" parent="1">'

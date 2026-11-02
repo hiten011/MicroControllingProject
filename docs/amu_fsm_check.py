@@ -120,34 +120,62 @@ def sgn(n):
 
 
 consts = {
-    "SCAN_SPEED_MM_S": ("Kobuki_Rotate(%d)", define("SCAN_SPEED_MM_S")),
-    "SCAN_FULL_DEG": ("scan_deg >= %d", define("SCAN_FULL_DEG")),
-    "LAYOUT_B_MAX_MM": ("range_mm < %d", define("LAYOUT_B_MAX_MM")),
-    "PATHFIND_DRIVE_SPEED": ("Kobuki_Drive(%d)", define("PATHFIND_DRIVE_SPEED")),
+    "SCAN_ROTATE_SPEED_MM_S": ("Kobuki_Rotate(%d)", define("SCAN_ROTATE_SPEED_MM_S")),
+    "SCAN_FULL_TURN_DEG": ("scan_deg >= %d", define("SCAN_FULL_TURN_DEG")),
+    "LAYOUT_B_MAX_RANGE_MM": ("range_mm < %d", define("LAYOUT_B_MAX_RANGE_MM")),
+    "PATHFIND_DRIVE_SPEED_MM_S": ("Kobuki_Drive(%d)", define("PATHFIND_DRIVE_SPEED_MM_S")),
     "STORAGE_DRIVE_IN_MM": ("kobuki.distance, %d)", define("STORAGE_DRIVE_IN_MM")),
     "PATHFIND_REVERSE_MM": ("kobuki.distance, -%d)", define("PATHFIND_REVERSE_MM")),
 }
 for k, (fmt, v) in consts.items():
     check(fmt % v in text, "%s = %d appears as '%s'" % (k, v, fmt % v))
-pairs = [("ORIENT_A_DEG", "ORIENT_B_DEG"), ("PATHFIND_CORNER_A_DEG", "PATHFIND_CORNER_B_DEG"),
-         ("STORAGE_TURN_A_DEG", "STORAGE_TURN_B_DEG")]
+pairs = [("ORIENT_TURN_LAYOUT_A_DEG", "ORIENT_TURN_LAYOUT_B_DEG"),
+         ("PATHFIND_CORNER_TURN_LAYOUT_A_DEG", "PATHFIND_CORNER_TURN_LAYOUT_B_DEG"),
+         ("STORAGE_TURN_LAYOUT_A_DEG", "STORAGE_TURN_LAYOUT_B_DEG")]
 for a, b in pairs:
     s = "A: %s, B: %s)" % (sgn(define(a)), sgn(define(b)))
     check(s in text, "%s / %s appear as '%s'" % (a, b, s))
-ra, rb = define("PATHFIND_ROTATE_A_DEG"), define("PATHFIND_ROTATE_B_DEG")
+ra, rb = define("PATHFIND_RECOVER_TURN_LAYOUT_A_DEG"), define("PATHFIND_RECOVER_TURN_LAYOUT_B_DEG")
 check("wall A %d, B %s" % (ra, sgn(rb)) in text and "recover = A %d | B %s" % (ra, sgn(rb)) in text,
       "wall-hit nudge A %d / B %s" % (ra, sgn(rb)))
 check("ledge A %s, B %d" % (sgn(-ra), -rb) in text and "recover = A %s | B %d" % (sgn(-ra), -rb) in text,
       "ledge nudge is the opposite: A %s / B %d" % (sgn(-ra), -rb))
 ultra = open(REPO + "/Src/Ultrasonic/ultrasonic.h").read()
-check("range_mm < %s" % re.search(r"DETECT_RANGE_MM \(\(uint16_t\)(\d+)U\)", ultra).group(1) in text, "detect range appears")
-check(define("BUTTON_B0") == 1 and "kobuki.button & 0x01" in text, "B0 = button & 0x01")
-check(define("SIDE_CENTRE") == 2 and "kobuki.cliff & 0x02" in text, "front cliff = cliff & 0x02")
-check("kobuki.bumper & 0x04" in text and "kobuki.bumper & 0x01" in text, "wall bumper masks (A left 0x04, B right 0x01)")
-check("kobuki.cliff & 0x01" in text and "kobuki.cliff & 0x04" in text, "ledge cliff masks (A right 0x01, B left 0x04)")
+detect = re.search(r"ULTRASONIC_DETECT_RANGE_MM \(\(uint16_t\)(\d+)U\)", ultra).group(1)
+check("range_mm < %s" % detect in text, "detect range %s appears" % detect)
+b0, b1 = define("KOBUKI_BUTTON_B0_MASK"), define("KOBUKI_BUTTON_B1_MASK")
+check(b0 == 1 and "kobuki.button & 0x01" in text, "B0 = button & 0x01")
+check(b1 == 2 and "kobuki.button & 0x02" in text, "B1 = button & 0x02")
+right, centre, left = (define("KOBUKI_SIDE_%s_MASK" % n) for n in ("RIGHT", "CENTRE", "LEFT"))
+check((right, centre, left) == (1, 2, 4) and "right = 0x01, centre = 0x02, left = 0x04" in text,
+      "side masks right 0x01, centre 0x02, left 0x04")
+check(centre == 2 and "kobuki.cliff & 0x02" in text, "front cliff = cliff & 0x02")
+check(("kobuki.bumper & 0x%02x" % left) in text and ("kobuki.bumper & 0x%02x" % right) in text,
+      "wall bumper masks (A left 0x04, B right 0x01)")
+check(("kobuki.cliff & 0x%02x" % right) in text and ("kobuki.cliff & 0x%02x" % left) in text,
+      "ledge cliff masks (A right 0x01, B left 0x04)")
+
+# ---------------------------------------------- per-State entry / do actions
+# Every Kobuki_* / Scan_* call that main.c runs as a State's entry (change_to) or as its
+# top-level do (the step that runs when no edge fired) must be written in that State's box.
+def body_of(cid):
+    return re.sub(r"\s+", " ", plain_text(cells[cid + "_body"].get("value") or ""))
+
+
+entry_src = main_c[main_c.index("state = next;"):main_c.index("// Initialise the peripherals")]
+for m in re.finditer(r"((?:\s*case ST_\w+:)+)(.*?)break;", entry_src, re.S):
+    calls = re.findall(r"\b((?:Kobuki|Scan)_\w+)\(", m.group(2))
+    for name in re.findall(r"ST_\w+", m.group(1)):
+        for fn in calls:
+            check("entry / " in body_of(ID[name]) and fn in body_of(ID[name]),
+                  "%s entry calls %s() in its box" % (name, fn))
+for name, body in zip(blocks[1::2], blocks[2::2]):
+    for fn in re.findall(r"^ {16}((?:Kobuki|Scan)_\w+)\(", body, re.M):
+        check(fn in body_of(ID[name]), "%s do calls %s() in its box" % (name, fn))
 
 # stale names must be gone
-for stale in ["scan_sample()", "scan_give_up()", "Kobuki_Drive(100)", "Rotate(+100)", "A: -90", "B: +135", "1000 mm", "-100"]:
+for stale in ["scan_sample()", "scan_give_up()", "Kobuki_Drive(100)", "Rotate(+100)", "A: -90", "B: +135", "1000 mm", "-100",
+              "SCAN_SPEED_MM_S", "SCAN_FULL_DEG", "LAYOUT_B_MAX_MM", "PATHFIND_ROTATE_", "PATHFIND_CORNER_A", "ORIENT_A_DEG"]:
     check(stale not in text, "stale text gone: %r" % stale)
 
 print()
