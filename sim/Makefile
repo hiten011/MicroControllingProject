@@ -11,7 +11,7 @@ else
   RUN := $(SIM_DIR)$(EXE)
 endif
 
-.PHONY: all build A B check help
+.PHONY: all build A B check check-deposit help
 
 all: build
 
@@ -27,8 +27,12 @@ B: build
 check: build
 	cd "$(ROOT)" && python3 sim/check_pathfind_recover.py
 
+check-deposit:
+	cd "$(ROOT)" && python3 sim/check_deposit_distance.py
+
 help:
 	@echo "make / make build  build the simulator for this OS"
 	@echo "make A             build, then run Layout A (heading 90, seed 1, verbose)"
 	@echo "make B             build, then run Layout B (heading 0, seed 1, verbose)"
 	@echo "make check         build, then run pathfind Reverse recovery check"
+	@echo "make check-deposit run deposit scan, alignment and distance control checks"

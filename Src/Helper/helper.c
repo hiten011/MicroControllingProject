@@ -59,7 +59,48 @@ void Scan_Sample(void)
 
 bool Scan_Gave_Up(void)
 {
-    return robot.scan_deg >= SCAN_FULL_DEG;
+    return robot.scan_ticks >= (int32_t)SCAN_FULL_DEG * 100;
+}
+
+void Deposit_Scan_Start(int16_t angle_tick)
+{
+    Scan_Start(angle_tick);
+    robot.deposit_rod.detected = 0;
+    robot.deposit_rod.range_mm = ULTRASONIC_MAX_RANGE_MM;
+    robot.deposit_rod_angle = angle_tick;
+    robot.deposit_range_mm = ULTRASONIC_MAX_RANGE_MM;
+    robot.deposit_settle_packets = 0;
+}
+
+void Deposit_Scan_Sample(void)
+{
+    Scan_Update_Turn(robot.kobuki.angle);
+    uint16_t range_mm = Ultrasonic_Read();
+
+    // Zero is invalid; the sensor's maximum range also represents no echo.
+    if (range_mm > 0 && range_mm < robot.deposit_rod.range_mm) {
+        robot.deposit_rod.detected = 1;
+        robot.deposit_rod.range_mm = range_mm;
+        robot.deposit_rod_angle = robot.kobuki.angle;
+    }
+}
+
+int16_t Deposit_Rod_Turn_Ticks(void)
+{
+    int32_t turn = (int32_t)robot.deposit_rod_angle - robot.kobuki.angle;
+
+    if (turn > 18000) {
+        turn -= 36000;
+    } else if (turn < -18000) {
+        turn += 36000;
+    }
+    return (int16_t)turn;
+}
+
+bool Deposit_Read_Range(void)
+{
+    robot.deposit_range_mm = Ultrasonic_Read();
+    return robot.deposit_range_mm > 0 && robot.deposit_range_mm < ULTRASONIC_MAX_RANGE_MM;
 }
 
 bool Corridor_Take_Wall_Hit(uint8_t bumper)

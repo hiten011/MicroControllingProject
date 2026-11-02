@@ -8,13 +8,21 @@ Firmware for the Autonomous Mobile Unit (AMU): a Kobuki base driven by a NUCLEO-
 
 ## How it runs
 
-One control step per received Kobuki packet (`Kobuki_Read()`, then a `switch` on the current state in `Src/main.c`). The AMU walks this path:
+`DEPOSIT_TEST_MODE` in `Src/Helper/helper.h` is currently **1**: the AMU enters Deposit automatically after the first Kobuki feedback packet. It turns anticlockwise through a full 360° at 50 mm/s wheel speed, records the closest valid ultrasonic target, then turns by the shortest route to face that saved heading. Alignment finishes within 1° of the saved heading. It then adjusts the ultrasonic reading to **420 mm ±10 mm** before stopping in Idle. Press B0 to repeat the whole sequence. B1 or wheeldrop stops any part of Deposit.
+
+If the reading is below 410 mm, the AMU reverses at 50 mm/s until it reads at least **520 mm**, then approaches at 35 mm/s. If it starts beyond 430 mm, it approaches directly. It pauses for about 300 ms after alignment and each stop so the 10 Hz ultrasonic output catches up, then checks the final distance again. A reading still below 410 mm repeats the reverse-then-approach correction. The target, tolerance, extra reverse distance and speeds are tunables in `Src/Helper/helper.h`.
+
+LED 1 is yellow during distance adjustment, green when the settled reading is within tolerance, and red for a missing/invalid echo. Zero and maximum-range readings stop distance adjustment through Fault. Bumpers and cliffs also stop the distance states.
+
+Inspect `robot.deposit_rod.detected`, `robot.deposit_rod.range_mm` and `robot.deposit_rod_angle` in the debugger for the scan result, and `robot.deposit_range_mm` for the live distance. The angle is the absolute Kobuki gyro heading in 0.01° ticks, wrapping at ±18000. All target distances are from the ultrasonic sensor face to the rod.
+
+Set `DEPOSIT_TEST_MODE` to **0** to restore the full parcel run and B0 starting Search, including for the simulator's Pathfind recovery check. One control step runs per received Kobuki packet (`Kobuki_Read()`, then a `switch` on the current state in `Src/main.c`). The full run follows this path:
 
 ```
 IDLE ──B0──▶ SEARCH ─▶ IDENTIFY ─▶ ORIENT ──▶ PATHFIND ──▶ STORAGE ──▶ IDLE
 
 PATHFIND = Drive, Reverse, Rotate, Corridor turn / reverse / stop
-STORAGE  = Turn, Drive-in, Deposit
+STORAGE  = Turn, Drive-in, Deposit, Deposit align, Deposit distance / reverse / approach
 
 Any State except IDLE ──B1 / wheeldrop──▶ STOP / FAULT ──▶ IDLE
 ```
@@ -50,3 +58,5 @@ cmake --build --preset Debug
 ```
 
 Needs `cmake`, `ninja` and the `arm-none-eabi` GCC toolchain. The ELF is `build/<preset>/main.elf`. CI builds both presets and checks formatting (`scripts/format.sh --check`, clang-format 18.1.8) and cppcheck.
+
+`make -C sim check-deposit` runs the firmware loop against mocked gyro, motion and delayed ultrasonic readings. It covers starting too close, too far or within tolerance, reverse-then-approach correction, sensor noise, and movement stops. It needs Python 3 and a host GCC compiler; it does not use the arena simulator's memory mapping.

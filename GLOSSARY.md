@@ -108,7 +108,7 @@ The State at the end of the second corridor: the AMU stops once, ending Pathfind
 _Avoid_: Front-cliff stop, pathfind done, arrival
 
 **Storage** (phase):
-The phase in which the AMU faces the entrance, drives into the storage unit, and finishes at the Deposit State. It spans Turn, Drive-in and Deposit.
+The phase in which the AMU faces the entrance, drives into the storage unit, scans for the closest target, faces it, and adjusts to a 420 mm ultrasonic reading. It spans Turn, Drive-in, Deposit, Deposit align, Deposit distance, Deposit reverse and Deposit approach.
 _Avoid_: STORAGE when the storage unit itself is meant
 
 **Turn** (Storage):
@@ -120,13 +120,25 @@ The State in which the AMU drives a fixed distance through the Entrance into the
 _Avoid_: enter, DRIVE_IN (code id), Drive (already the Pathfind State)
 
 **Deposit** (State):
-The State after Drive-in in which the AMU stops inside the storage unit. Deposit-location sensing is not part of this State yet.
+The State after Drive-in in which the AMU turns anticlockwise through a full 360°, remembers the closest valid ultrasonic target and its gyro heading, then enters Deposit align. With no valid echo, it stops in Idle. With `DEPOSIT_TEST_MODE = 1`, it also runs automatically on boot and on B0 from Idle.
 _Avoid_: DEPOSIT (code id), drop-off (the place is Deposit location)
+
+**Deposit align**:
+The State after Deposit in which the AMU turns by the shortest route to the saved target heading. Within 1° of that heading it stops and enters Deposit distance. B1 or wheeldrop stops it through Fault.
+
+**Deposit distance**:
+The stopped State after alignment or a distance correction. It waits about 300 ms for the ultrasonic output to catch up, then checks the live range. Below 410 mm it enters Deposit reverse; above 430 mm it enters Deposit approach; within that band it lights LED 1 green and enters Idle. The nominal target is 420 mm from the sensor face to the rod.
+
+**Deposit reverse**:
+The State that backs away at 50 mm/s until the ultrasonic reads at least 520 mm, then stops in Deposit distance before approaching forward. The extra 100 mm provides room to finish the correction moving forward.
+
+**Deposit approach**:
+The State that moves forward at 35 mm/s until the ultrasonic reads at most 430 mm, then stops in Deposit distance to check the settled reading. B1, wheeldrop, any bumper or cliff, or a zero/no-echo reading stops any Deposit distance-adjustment State through Fault.
 
 ### Running the FSM
 
 **Idle**:
-The State in which the AMU holds still until B0 (start) is pressed. It is the first State, and the State every run returns to. Leaving it forgets the last Search and starts a new one in Search.
+The State in which the AMU holds still until B0 (start) is pressed. Every run returns to it. B0 starts a fresh Deposit scan when `DEPOSIT_TEST_MODE = 1`; otherwise it forgets the last Search and starts Search. With test mode disabled, Idle is also the first State.
 _Avoid_: Standby, Ready, IDLE (code id)
 
 **Fault**:
