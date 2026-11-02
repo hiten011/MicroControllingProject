@@ -25,6 +25,8 @@ typedef enum {
     ST_DRIVE_IN,
     ST_DEPOSIT,
     ST_DEPOSIT_ALIGN,
+    ST_DEPOSIT_REFINE_TURN,
+    ST_DEPOSIT_REFINE_SAMPLE,
     ST_DEPOSIT_DISTANCE,
     ST_DEPOSIT_REVERSE,
     ST_DEPOSIT_APPROACH,
@@ -75,6 +77,11 @@ static void change_to(State next)
             Kobuki_Drive(STOP);
             robot.deposit_settle_packets = DEPOSIT_SETTLE_PACKETS;
             Kobuki_Update_LEDs(YELLOW, OFF);
+            break;
+
+        case ST_DEPOSIT_REFINE_SAMPLE:
+            Kobuki_Drive(STOP);
+            Deposit_Refine_Settle();
             break;
 
         case ST_ORIENT:
@@ -316,20 +323,65 @@ int main(void)
                 Kobuki_Rotate(DEPOSIT_SCAN_SPEED_MM_S);
                 break;
 
-            // Turn the short way round to face the saved target heading.
+            // Turn the short way round to face the saved target heading: first the coarse one, which starts the
+            // refine sweep, then the refined one, which goes on to the distance check.
             case ST_DEPOSIT_ALIGN: {
                 if (Fault_B1_Wheeldrop()) {
                     change_to(ST_FAULT);
                     break;
                 }
                 int16_t turn = Deposit_Rod_Turn_Ticks();
-                if (turn >= -DEPOSIT_ALIGN_TOLERANCE_TICKS && turn <= DEPOSIT_ALIGN_TOLERANCE_TICKS) {
-                    change_to(ST_DEPOSIT_DISTANCE);
+                int16_t tolerance =
+                    robot.deposit_refined ? DEPOSIT_REFINE_TOLERANCE_TICKS : DEPOSIT_ALIGN_TOLERANCE_TICKS;
+                if (turn >= -tolerance && turn <= tolerance) {
+                    Kobuki_Drive(STOP);
+                    if (robot.deposit_refined) {
+                        change_to(ST_DEPOSIT_DISTANCE);
+                    } else {
+                        Deposit_Refine_Start();
+                        change_to(ST_DEPOSIT_REFINE_TURN);
+                    }
                     break;
                 }
-                Kobuki_Rotate(turn > 0 ? DEPOSIT_SCAN_SPEED_MM_S : -DEPOSIT_SCAN_SPEED_MM_S);
+                int16_t speed = robot.deposit_refined ? DEPOSIT_REFINE_SPEED_MM_S : DEPOSIT_SCAN_SPEED_MM_S;
+                Kobuki_Rotate(turn > 0 ? speed : -speed);
                 break;
             }
+
+            // Turn to the next step of the refine sweep around the coarse heading.
+            case ST_DEPOSIT_REFINE_TURN: {
+                if (Fault_B1_Wheeldrop()) {
+                    change_to(ST_FAULT);
+                    break;
+                }
+                int16_t turn = Deposit_Refine_Turn_Ticks();
+                if (turn >= -DEPOSIT_REFINE_TOLERANCE_TICKS && turn <= DEPOSIT_REFINE_TOLERANCE_TICKS) {
+                    change_to(ST_DEPOSIT_REFINE_SAMPLE);
+                    break;
+                }
+                Kobuki_Rotate(turn > 0 ? DEPOSIT_REFINE_SPEED_MM_S : -DEPOSIT_REFINE_SPEED_MM_S);
+                break;
+            }
+
+            // Stopped at a sweep step: take three readings, then move to the next step or pick the refined heading.
+            case ST_DEPOSIT_REFINE_SAMPLE:
+                if (Fault_B1_Wheeldrop()) {
+                    change_to(ST_FAULT);
+                    break;
+                }
+                Kobuki_Drive(STOP);
+                if (!Deposit_Refine_Sample()) {
+                    break;
+                }
+                if (Deposit_Refine_Next()) {
+                    change_to(ST_DEPOSIT_REFINE_TURN);
+                } else if (Deposit_Refine_Finish()) {
+                    change_to(ST_DEPOSIT_ALIGN);
+                } else {
+                    Kobuki_Update_LEDs(RED, OFF);
+                    change_to(ST_FAULT);
+                }
+                break;
 
             // Stopped: wait for the ultrasonic to catch up, then check the live range and pick the next move.
             case ST_DEPOSIT_DISTANCE:

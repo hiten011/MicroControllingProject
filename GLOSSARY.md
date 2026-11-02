@@ -108,7 +108,7 @@ The State at the end of the second corridor: the AMU stops once, ending Pathfind
 _Avoid_: Front-cliff stop, pathfind done, arrival
 
 **Storage** (phase):
-The phase in which the AMU faces the entrance, drives into the storage unit, scans for the closest target, faces it, and adjusts to the target ultrasonic range. It spans Turn, Drive-in, Deposit, Deposit align, Deposit distance, Deposit reverse and Deposit approach.
+The phase in which the AMU faces the entrance, drives into the storage unit, scans for the closest target, faces it, refines its heading, and adjusts to the target ultrasonic range. It spans Turn, Drive-in, Deposit, Deposit align, Deposit refine turn/sample, Deposit distance, Deposit reverse and Deposit approach.
 _Avoid_: STORAGE when the storage unit itself is meant
 
 **Turn** (Storage):
@@ -120,11 +120,14 @@ The State in which the AMU drives a fixed distance through the Entrance into the
 _Avoid_: enter, DRIVE_IN (code id), Drive (already the Pathfind State)
 
 **Deposit** (State):
-The State after Drive-in in which the AMU turns anticlockwise through a full 360°, remembers the closest valid ultrasonic target and its gyro heading, then enters Deposit align. With no valid echo, it lights LED 1 red and stops in Idle. With `DEPOSIT_TEST_MODE = 1`, it also runs automatically on boot and on B0 from Idle.
+The State after Drive-in in which the AMU turns anticlockwise through a full 360°, remembers the closest valid ultrasonic target and its gyro heading (the coarse heading), then enters Deposit align. With no valid echo, it lights LED 1 red and stops in Idle. With `DEPOSIT_TEST_MODE = 1`, it also runs automatically on boot and on B0 from Idle.
 _Avoid_: DEPOSIT (code id), drop-off (the place is Deposit location)
 
 **Deposit align**:
-The State after Deposit in which the AMU turns by the shortest route to the saved target heading. Within 1° of that heading it stops and enters Deposit distance. B1 or wheeldrop stops it through Fault.
+The State that turns by the shortest route to the saved target heading. After Deposit it faces the coarse heading within 1° and starts the local refinement. After refinement it faces the centre of the chosen echo group, stops when the heading error is within 0.5°, and enters Deposit distance. B1 or wheeldrop stops it through Fault.
+
+**Deposit refine turn/sample**:
+The States that scan ±25° around the coarse heading in 2° steps. Turn uses 35 mm/s wheel speed; Sample stops for about 300 ms and takes the median of three readings spaced about 100 ms apart. After the sweep, the centre of the widest contiguous group within 10 mm of the local minimum becomes the refined heading. Tied groups prefer the coarse heading. With no valid echo, it lights LED 1 red and stops through Fault. B1 or wheeldrop stops either State immediately.
 
 **Deposit distance**:
 The stopped State after alignment or a distance correction. It waits about 300 ms for the ultrasonic output to catch up, then checks the live range against `DEPOSIT_TARGET_RANGE_MM` ± `DEPOSIT_RANGE_TOLERANCE_MM`. Below that band it enters Deposit reverse; above it, Deposit approach; within it, it lights LED 1 green and enters Idle.

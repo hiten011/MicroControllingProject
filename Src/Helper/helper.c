@@ -3,6 +3,23 @@
 // Shared run-time state.
 RobotData robot;
 
+// Fold an angle difference back into +-18000 ticks (the gyro wraps there), so the short way round is chosen.
+static int16_t angle_wrap(int32_t angle)
+{
+    if (angle > 18000) {
+        angle -= 36000;
+    } else if (angle < -18000) {
+        angle += 36000;
+    }
+    return (int16_t)angle;
+}
+
+// Signed shortest turn from current to target, in 0.01 degree ticks; positive is anticlockwise.
+static int16_t angle_turn(int16_t target, int16_t current)
+{
+    return angle_wrap((int32_t)target - current);
+}
+
 bool Fault_B1_Wheeldrop(void)
 {
     return (robot.kobuki.button & KOBUKI_BUTTON_B1_MASK) != 0 || robot.kobuki.wheeldrop != 0;
@@ -74,6 +91,7 @@ void Deposit_Scan_Start(int16_t angle_tick)
     robot.deposit_rod_angle = angle_tick;
     robot.deposit_range_mm = ULTRASONIC_MAX_RANGE_MM;
     robot.deposit_settle_packets = 0;
+    robot.deposit_refined = false;
 }
 
 void Deposit_Scan_Sample(void)
@@ -91,15 +109,116 @@ void Deposit_Scan_Sample(void)
 
 int16_t Deposit_Rod_Turn_Ticks(void)
 {
-    int32_t turn = (int32_t)robot.deposit_rod_angle - robot.kobuki.angle;
+    return angle_turn(robot.deposit_rod_angle, robot.kobuki.angle);
+}
 
-    // The gyro wraps at +-18000 ticks, so take the shorter way round.
-    if (turn > 18000) {
-        turn -= 36000;
-    } else if (turn < -18000) {
-        turn += 36000;
+void Deposit_Refine_Start(void)
+{
+    robot.deposit_refine = (DepositRefine){.base_angle = robot.deposit_rod_angle};
+    for (uint8_t i = 0; i < DEPOSIT_REFINE_POINTS; i++) {
+        robot.deposit_refine.ranges[i] = ULTRASONIC_MAX_RANGE_MM;
     }
-    return (int16_t)turn;
+    robot.deposit_refined = false;
+}
+
+int16_t Deposit_Refine_Turn_Ticks(void)
+{
+    DepositRefine *refine = &robot.deposit_refine;
+    int32_t offset = (-DEPOSIT_REFINE_HALF_ANGLE_DEG + refine->point * DEPOSIT_REFINE_STEP_DEG) * 100;
+    return angle_turn(angle_wrap((int32_t)refine->base_angle + offset), robot.kobuki.angle);
+}
+
+void Deposit_Refine_Settle(void)
+{
+    robot.deposit_refine.sample_count = 0;
+    robot.deposit_refine.wait_packets = DEPOSIT_SETTLE_PACKETS;
+}
+
+bool Deposit_Refine_Sample(void)
+{
+    DepositRefine *refine = &robot.deposit_refine;
+    if (refine->wait_packets > 0) {
+        refine->wait_packets--;
+        if (refine->wait_packets > 0) {
+            return false;
+        }
+    }
+
+    // Zero is invalid, so treat it like no echo.
+    uint16_t range = Ultrasonic_Read();
+    refine->readings[refine->sample_count++] = (range > 0) ? range : ULTRASONIC_MAX_RANGE_MM;
+    if (refine->sample_count < 3) {
+        refine->wait_packets = DEPOSIT_REFINE_SAMPLE_PACKETS;
+        return false;
+    }
+
+    // Sort just these three readings; one bad/noisy echo cannot choose the heading by itself.
+    for (uint8_t i = 0; i < 2; i++) {
+        for (uint8_t j = i + 1; j < 3; j++) {
+            if (refine->readings[j] < refine->readings[i]) {
+                uint16_t temp = refine->readings[i];
+                refine->readings[i] = refine->readings[j];
+                refine->readings[j] = temp;
+            }
+        }
+    }
+    refine->ranges[refine->point] = refine->readings[1];
+    refine->angles[refine->point] = robot.kobuki.angle;
+    return true;
+}
+
+bool Deposit_Refine_Next(void)
+{
+    robot.deposit_refine.point++;
+    return robot.deposit_refine.point < DEPOSIT_REFINE_POINTS;
+}
+
+bool Deposit_Refine_Finish(void)
+{
+    DepositRefine *refine = &robot.deposit_refine;
+    uint16_t minimum = ULTRASONIC_MAX_RANGE_MM;
+    for (uint8_t i = 0; i < DEPOSIT_REFINE_POINTS; i++) {
+        if (refine->ranges[i] < minimum) {
+            minimum = refine->ranges[i];
+        }
+    }
+    if (minimum == ULTRASONIC_MAX_RANGE_MM) {
+        return false;
+    }
+
+    // Find the widest run of steps within the band of the minimum, preferring the one nearest the coarse heading.
+    uint8_t best_count = 0;
+    int16_t best_angle = refine->base_angle;
+    int32_t best_offset = 36000;
+    for (uint8_t i = 0; i < DEPOSIT_REFINE_POINTS;) {
+        if (refine->ranges[i] >= ULTRASONIC_MAX_RANGE_MM ||
+            refine->ranges[i] > minimum + DEPOSIT_REFINE_RANGE_BAND_MM) {
+            i++;
+            continue;
+        }
+        uint8_t first = i;
+        do {
+            i++;
+        } while (i < DEPOSIT_REFINE_POINTS && refine->ranges[i] < ULTRASONIC_MAX_RANGE_MM &&
+                 refine->ranges[i] <= minimum + DEPOSIT_REFINE_RANGE_BAND_MM);
+
+        uint8_t count = i - first;
+        int16_t span = angle_turn(refine->angles[i - 1], refine->angles[first]);
+        int16_t centre = angle_wrap((int32_t)refine->angles[first] + span / 2);
+        int32_t offset = angle_turn(centre, refine->base_angle);
+        if (offset < 0) {
+            offset = -offset;
+        }
+        if (count > best_count || (count == best_count && offset < best_offset)) {
+            best_count = count;
+            best_angle = centre;
+            best_offset = offset;
+        }
+    }
+    robot.deposit_rod.range_mm = minimum;
+    robot.deposit_rod_angle = best_angle;
+    robot.deposit_refined = true;
+    return true;
 }
 
 bool Deposit_Read_Range(void)
