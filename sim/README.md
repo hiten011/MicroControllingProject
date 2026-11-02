@@ -18,7 +18,7 @@ make -C sim          # or: cd sim && make
 make -C sim A        # Layout A, heading 90, seed 1, verbose
 make -C sim B        # Layout B, heading 0, seed 1, verbose
 make -C sim check    # pathfind Reverse recovery check
-make -C sim check-deposit # mocked deposit loop: scan, align, reverse and approach to 420 mm
+make -C sim check-deposit # mocked deposit loop: scan, refine alignment, adjust to the configured range
 ```
 
 On Linux and macOS, with `gcc` on `PATH`, you can still call the script directly:
@@ -29,7 +29,7 @@ On Linux and macOS, with `gcc` on `PATH`, you can still call the script directly
 
 That writes `sim/kobuki_sim`. The script always passes `-DSIM_SHIM`.
 
-`check-deposit` builds its own temporary host test executable and does not need the arena simulator to run. It checks live distance adjustment with 10 Hz sonar, 100 ms publication latency, motor acceleration and bounded measurement noise, including stops during reverse and approach. It also works on hosts where the arena simulator cannot map peripheral memory.
+`check-deposit` builds its own temporary host test executable and does not need the arena simulator to run. It checks local beam centring, gyro wrap, lost echoes, median sampling and live distance adjustment with 10 Hz sonar, 100 ms publication latency, motor acceleration and bounded measurement noise. It exercises stops during refinement, reverse and approach. It also works on hosts where the arena simulator cannot map peripheral memory.
 
 On Windows, `gcc` comes from MSYS2 UCRT64 (`C:\msys64\ucrt64\bin` on `PATH`).
 

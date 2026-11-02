@@ -4,6 +4,7 @@
 #include <math.h>
 #include <setjmp.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 
 #define main firmware_main
@@ -18,18 +19,20 @@ typedef enum {
     INJECT_CLIFF,
     INJECT_ZERO,
     INJECT_NO_ECHO,
-    INJECT_OVERSHOOT
+    INJECT_OVERSHOOT,
+    INJECT_LOST_ROD
 } Injection;
 
 static jmp_buf finished;
 static double gap, gyro, left_speed, right_speed, left_target, right_target;
 static double largest_gap;
+static double rod_heading = 9000.0;
 static uint16_t sonar, pending_sonar;
 static unsigned packets, reverse_commands, forward_commands, injected_at, finished_at;
 static Kobuki_LED_Enum led;
 static Injection injection;
 static State injection_state;
-static bool saw_reverse, saw_approach, add_noise, disturbed;
+static bool saw_reverse, saw_approach, add_noise, disturbed, lost_rod;
 
 static int16_t gyro_tick(double angle)
 {
@@ -73,16 +76,19 @@ void Kobuki_Read(Kobuki_Typedef *kobuki)
     }
     if (injection == INJECT_OVERSHOOT && state == ST_DEPOSIT_DISTANCE && saw_approach && !disturbed) {
         // Force a too-short settled reading after forward travel; it must back off and approach again.
-        gap = 390;
+        gap = DEPOSIT_TARGET_RANGE_MM - DEPOSIT_RANGE_TOLERANCE_MM - 20;
         disturbed = true;
+    }
+    if (injection == INJECT_LOST_ROD && state == ST_DEPOSIT_REFINE_TURN) {
+        lost_rod = true;
     }
 
     // Publish each measurement 100 ms later, and hold its value for 100 ms.
     if (packets % 5 == 0) {
         sonar = pending_sonar;
-        int16_t offset = gyro_tick(gyro - 9000.0);
+        int16_t offset = gyro_tick(gyro - rod_heading);
         int noise = add_noise ? (int)((packets / 5) % 3) * 3 - 3 : 0;
-        pending_sonar = (offset > -1200 && offset < 1200) ? (uint16_t)lround(gap + noise) : 5000;
+        pending_sonar = (!lost_rod && offset > -1200 && offset < 1200) ? (uint16_t)lround(gap + noise) : 5000;
     }
 
     *kobuki = (Kobuki_Typedef){.angle = gyro_tick(gyro)};
@@ -90,7 +96,8 @@ void Kobuki_Read(Kobuki_Typedef *kobuki)
     saw_approach |= state == ST_DEPOSIT_APPROACH;
     if (injection > INJECT_NONE && injection <= INJECT_NO_ECHO && state == injection_state && !injected_at) {
         // Exercise the stop while moving, rather than only on state entry.
-        if (state == ST_DEPOSIT_DISTANCE || (left_target != 0 && right_target != 0)) {
+        if (state == ST_DEPOSIT_DISTANCE || state == ST_DEPOSIT_REFINE_SAMPLE ||
+            (left_target != 0 && right_target != 0)) {
             injected_at = packets;
         }
     }
@@ -144,7 +151,8 @@ void Kobuki_Drive(int16_t speed)
 
 void Kobuki_Rotate(int16_t speed)
 {
-    assert(speed == DEPOSIT_SCAN_SPEED_MM_S || speed == -DEPOSIT_SCAN_SPEED_MM_S);
+    assert(speed == DEPOSIT_SCAN_SPEED_MM_S || speed == -DEPOSIT_SCAN_SPEED_MM_S ||
+           speed == DEPOSIT_REFINE_SPEED_MM_S || speed == -DEPOSIT_REFINE_SPEED_MM_S);
     left_target = -speed;
     right_target = speed;
 }
@@ -207,6 +215,7 @@ static void run(double initial_gap, Injection event, State event_state, bool noi
     injection_state = event_state;
     saw_reverse = saw_approach = false;
     disturbed = false;
+    lost_rod = false;
     add_noise = noise;
     if (setjmp(finished) == 0) {
         firmware_main();
@@ -215,9 +224,55 @@ static void run(double initial_gap, Injection event, State event_state, bool noi
     assert(state == ST_IDLE);
 }
 
+static void check_refine_samples(void)
+{
+    memset(&robot, 0, sizeof robot);
+    robot.deposit_rod_angle = 17900;
+    Deposit_Refine_Start();
+    Deposit_Refine_Settle();
+
+    // A single bad echo is rejected; each of the three readings is spaced by a sonar cycle.
+    sonar = 450;
+    for (unsigned i = 0; i < DEPOSIT_SETTLE_PACKETS; i++) {
+        assert(!Deposit_Refine_Sample());
+    }
+    assert(robot.deposit_refine.sample_count == 1);
+    sonar = 0;
+    for (unsigned i = 0; i < DEPOSIT_REFINE_SAMPLE_PACKETS; i++) {
+        assert(!Deposit_Refine_Sample());
+    }
+    assert(robot.deposit_refine.sample_count == 2);
+    sonar = 452;
+    for (unsigned i = 1; i < DEPOSIT_REFINE_SAMPLE_PACKETS; i++) {
+        assert(!Deposit_Refine_Sample());
+    }
+    assert(Deposit_Refine_Sample());
+    assert(robot.deposit_refine.ranges[0] == 452);
+
+    Deposit_Refine_Start();
+    assert(!Deposit_Refine_Finish());
+    assert(!robot.deposit_refined);
+    for (unsigned i = 0; i < DEPOSIT_REFINE_POINTS; i++) {
+        int32_t offset = (-DEPOSIT_REFINE_HALF_ANGLE_DEG + (int)i * DEPOSIT_REFINE_STEP_DEG) * 100;
+        robot.deposit_refine.angles[i] = gyro_tick(17900 + offset);
+    }
+    // The close echo crosses the gyro wrap. A wider, farther echo must not win.
+    for (unsigned i = 10; i <= 16; i++) {
+        robot.deposit_refine.ranges[i] = 410;
+    }
+    for (unsigned i = 18; i < DEPOSIT_REFINE_POINTS; i++) {
+        robot.deposit_refine.ranges[i] = 600;
+    }
+    assert(Deposit_Refine_Finish());
+    assert(robot.deposit_refined && robot.deposit_rod.range_mm == 410);
+    assert(abs(gyro_tick(robot.deposit_rod_angle - 18000)) <= 1);
+    puts("PASS: stationary median, empty scan, nearer echo selection and cluster centre across gyro wrap");
+}
+
 int main(void)
 {
     assert(DEPOSIT_TEST_MODE);
+    check_refine_samples();
     // Start gaps are offsets from the target, so the check follows DEPOSIT_TARGET_RANGE_MM if it is retuned.
     const double offsets[] = {-120, -70, -11, -10, 0, 10, 11, 100, 380};
     const double target = DEPOSIT_TARGET_RANGE_MM;
@@ -225,7 +280,9 @@ int main(void)
         const double start = target + offsets[i];
         for (unsigned noise = 0; noise < 2; noise++) {
             run(start, INJECT_NONE, ST_IDLE, noise != 0);
-            assert(led == GREEN && robot.deposit_rod.detected);
+            assert(led == GREEN && robot.deposit_rod.detected && robot.deposit_refined);
+            assert(abs(gyro_tick(robot.deposit_rod_angle - rod_heading)) <= 200);
+            assert(abs(gyro_tick(gyro - rod_heading)) <= 200);
             // The real gap also includes the injected ±3 mm measurement error and ADC rounding.
             double measurement_error = noise ? 3.5 : 0.5;
             assert(gap >= DEPOSIT_TARGET_RANGE_MM - DEPOSIT_RANGE_TOLERANCE_MM - measurement_error);
@@ -248,6 +305,25 @@ int main(void)
         }
     }
 
+    const double headings[] = {0, 17900, -17900, 4500, 9000};
+    for (unsigned i = 0; i < sizeof headings / sizeof headings[0]; i++) {
+        rod_heading = headings[i];
+        run(DEPOSIT_TARGET_RANGE_MM, INJECT_NONE, ST_IDLE, true);
+        assert(led == GREEN && robot.deposit_refined);
+        int16_t coarse_error = gyro_tick(robot.deposit_refine.base_angle - rod_heading);
+        int16_t refined_error = gyro_tick(robot.deposit_rod_angle - rod_heading);
+        assert(abs(refined_error) <= 200);
+        assert(abs(gyro_tick(gyro - rod_heading)) <= 200);
+        printf("PASS heading %.2f deg: coarse error %.2f deg, refined error %.2f deg\n",
+               rod_heading / 100.0, coarse_error / 100.0, refined_error / 100.0);
+    }
+    rod_heading = 9000;
+
+    run(DEPOSIT_TARGET_RANGE_MM, INJECT_LOST_ROD, ST_IDLE, false);
+    assert(lost_rod && !robot.deposit_refined && led == RED);
+    assert(!forward_commands && !reverse_commands);
+    puts("PASS: losing the rod during refinement stops before linear movement");
+
     run(target + 380, INJECT_OVERSHOOT, ST_DEPOSIT_DISTANCE, false);
     assert(disturbed && saw_reverse && reverse_commands && forward_commands && led == GREEN);
     assert(robot.deposit_range_mm >= DEPOSIT_TARGET_RANGE_MM - DEPOSIT_RANGE_TOLERANCE_MM);
@@ -266,6 +342,15 @@ int main(void)
             printf("PASS immediate stop: phase %u, event %u\n", phase, (unsigned)event);
         }
     }
-    puts("PASS: target-range control, reverse past target then approach, tolerance, sensor latency/noise and stops");
+    const State refine_phases[] = {ST_DEPOSIT_REFINE_TURN, ST_DEPOSIT_REFINE_SAMPLE};
+    for (unsigned phase = 0; phase < sizeof refine_phases / sizeof refine_phases[0]; phase++) {
+        for (Injection event = INJECT_B1; event <= INJECT_DROP; event++) {
+            run(DEPOSIT_TARGET_RANGE_MM, event, refine_phases[phase], false);
+            assert(injected_at && led != GREEN && !robot.deposit_refined);
+            assert(!forward_commands && !reverse_commands);
+            printf("PASS refinement stop: phase %u, event %u\n", phase, (unsigned)event);
+        }
+    }
+    puts("PASS: local refinement, calibrated distance, reverse then approach, latency/noise and stops");
     return 0;
 }
