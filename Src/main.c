@@ -24,6 +24,10 @@ typedef enum {
     ST_TURN,
     ST_DRIVE_IN,
     ST_DEPOSIT,
+    ST_DEPOSIT_ALIGN,
+    ST_DEPOSIT_DISTANCE,
+    ST_DEPOSIT_REVERSE,
+    ST_DEPOSIT_APPROACH,
     ST_FAULT
 } State;
 
@@ -57,9 +61,20 @@ static void change_to(State next)
     switch (next) {
         case ST_IDENTIFY:
         case ST_CORRIDOR_STOP:
-        case ST_DEPOSIT:
         case ST_FAULT:
             Kobuki_Drive(STOP);
+            break;
+
+        case ST_DEPOSIT:
+            Kobuki_Drive(STOP);
+            Deposit_Scan_Start(robot.kobuki.angle);
+            Kobuki_Update_LEDs(OFF, OFF);
+            break;
+
+        case ST_DEPOSIT_DISTANCE:
+            Kobuki_Drive(STOP);
+            robot.deposit_settle_packets = DEPOSIT_SETTLE_PACKETS;
+            Kobuki_Update_LEDs(YELLOW, OFF);
             break;
 
         case ST_ORIENT:
@@ -102,15 +117,21 @@ int main(void)
     ADC_Init();
     Ultrasonic_Init();
 
+    if (DEPOSIT_TEST_MODE) {
+        // Take the initial gyro heading from real feedback before the test scan starts.
+        Kobuki_Read(&robot.kobuki);
+        change_to(ST_DEPOSIT);
+    }
+
     while (1) {
         // Blocks until the next packet, which paces the loop.
         Kobuki_Read(&robot.kobuki);
 
         switch (state) {
-            // Wait for B0, staying stopped.
+            // Wait for B0, staying stopped. In Deposit test mode B0 repeats the Deposit scan instead of Search.
             case ST_IDLE:
                 if ((robot.kobuki.button & KOBUKI_BUTTON_B0_MASK) != 0) {
-                    change_to(ST_SEARCH);
+                    change_to(DEPOSIT_TEST_MODE ? ST_DEPOSIT : ST_SEARCH);
                     break;
                 }
                 Kobuki_Drive(STOP);
@@ -244,7 +265,7 @@ int main(void)
                 change_to(ST_TURN);
                 break;
 
-            // STORAGE phase: face the storage unit, drive in, and stop.
+            // STORAGE phase: face the storage unit, drive in, then find and settle at the deposit target.
             case ST_TURN:
                 if (Fault_B1_Wheeldrop()) {
                     change_to(ST_FAULT);
@@ -275,13 +296,101 @@ int main(void)
                 Kobuki_Drive_Distance(robot.kobuki.distance);
                 break;
 
-            // Parcel delivered; return to IDLE for the next run.
+            // Turn a full circle anticlockwise, remembering the closest valid ultrasonic target and its heading.
             case ST_DEPOSIT:
                 if (Fault_B1_Wheeldrop()) {
                     change_to(ST_FAULT);
                     break;
                 }
-                change_to(ST_IDLE);
+                Deposit_Scan_Sample();
+                if (Scan_Gave_Up()) {
+                    Kobuki_Drive(STOP);
+                    if (robot.deposit_rod.detected) {
+                        change_to(ST_DEPOSIT_ALIGN);
+                    } else {
+                        Kobuki_Update_LEDs(RED, OFF);
+                        change_to(ST_IDLE);
+                    }
+                    break;
+                }
+                Kobuki_Rotate(DEPOSIT_SCAN_SPEED_MM_S);
+                break;
+
+            // Turn the short way round to face the saved target heading.
+            case ST_DEPOSIT_ALIGN: {
+                if (Fault_B1_Wheeldrop()) {
+                    change_to(ST_FAULT);
+                    break;
+                }
+                int16_t turn = Deposit_Rod_Turn_Ticks();
+                if (turn >= -DEPOSIT_ALIGN_TOLERANCE_TICKS && turn <= DEPOSIT_ALIGN_TOLERANCE_TICKS) {
+                    change_to(ST_DEPOSIT_DISTANCE);
+                    break;
+                }
+                Kobuki_Rotate(turn > 0 ? DEPOSIT_SCAN_SPEED_MM_S : -DEPOSIT_SCAN_SPEED_MM_S);
+                break;
+            }
+
+            // Stopped: wait for the ultrasonic to catch up, then check the live range and pick the next move.
+            case ST_DEPOSIT_DISTANCE:
+                if (Fault_Any()) {
+                    change_to(ST_FAULT);
+                    break;
+                }
+                if (robot.deposit_settle_packets > 0) {
+                    robot.deposit_settle_packets--;
+                    Kobuki_Drive(STOP);
+                    break;
+                }
+                if (!Deposit_Read_Range()) {
+                    Kobuki_Update_LEDs(RED, OFF);
+                    change_to(ST_FAULT);
+                    break;
+                }
+                if (robot.deposit_range_mm < DEPOSIT_TARGET_RANGE_MM - DEPOSIT_RANGE_TOLERANCE_MM) {
+                    change_to(ST_DEPOSIT_REVERSE);
+                } else if (robot.deposit_range_mm > DEPOSIT_TARGET_RANGE_MM + DEPOSIT_RANGE_TOLERANCE_MM) {
+                    change_to(ST_DEPOSIT_APPROACH);
+                } else {
+                    Kobuki_Update_LEDs(GREEN, OFF);
+                    change_to(ST_IDLE);
+                }
+                break;
+
+            // Too close: back off past the target so the final correction is made moving forward.
+            case ST_DEPOSIT_REVERSE:
+                if (Fault_Any()) {
+                    change_to(ST_FAULT);
+                    break;
+                }
+                if (!Deposit_Read_Range()) {
+                    Kobuki_Update_LEDs(RED, OFF);
+                    change_to(ST_FAULT);
+                    break;
+                }
+                if (robot.deposit_range_mm >= DEPOSIT_TARGET_RANGE_MM + DEPOSIT_REVERSE_MARGIN_MM) {
+                    change_to(ST_DEPOSIT_DISTANCE);
+                    break;
+                }
+                Kobuki_Drive(-DEPOSIT_REVERSE_SPEED_MM_S);
+                break;
+
+            // Too far: creep forward until the reading is back inside the tolerance band.
+            case ST_DEPOSIT_APPROACH:
+                if (Fault_Any()) {
+                    change_to(ST_FAULT);
+                    break;
+                }
+                if (!Deposit_Read_Range()) {
+                    Kobuki_Update_LEDs(RED, OFF);
+                    change_to(ST_FAULT);
+                    break;
+                }
+                if (robot.deposit_range_mm <= DEPOSIT_TARGET_RANGE_MM + DEPOSIT_RANGE_TOLERANCE_MM) {
+                    change_to(ST_DEPOSIT_DISTANCE);
+                    break;
+                }
+                Kobuki_Drive(DEPOSIT_APPROACH_SPEED_MM_S);
                 break;
 
             // Fault: motors already stopped on entry, so just go back to IDLE.

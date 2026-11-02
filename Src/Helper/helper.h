@@ -16,7 +16,7 @@
 #define KOBUKI_SIDE_LEFT_MASK   0x04U
 #define KOBUKI_SIDE_ALL_MASK    (KOBUKI_SIDE_RIGHT_MASK | KOBUKI_SIDE_CENTRE_MASK | KOBUKI_SIDE_LEFT_MASK)
 
-// Search spin: give up after a full turn (degrees from the heading at B0, anticlockwise positive).
+// Scan spin: stop after a full turn (degrees from the heading at the start of each scan, anticlockwise positive).
 #define SCAN_FULL_TURN_DEG     360
 #define SCAN_ROTATE_SPEED_MM_S 150
 
@@ -40,6 +40,29 @@
 #define STORAGE_TURN_LAYOUT_B_DEG (-131)
 #define STORAGE_DRIVE_IN_MM       900
 
+// Start directly in Deposit for bench testing. Leave at 0 for the full parcel run.
+#ifndef DEPOSIT_TEST_MODE
+#define DEPOSIT_TEST_MODE 0
+#endif
+
+// Deposit scan and align: slow enough for the ultrasonic's 10 Hz output while turning anticlockwise.
+#define DEPOSIT_SCAN_SPEED_MM_S 50
+
+// Deposit align: stop facing the saved measurement within 1 degree (gyro ticks are 0.01 degree).
+#define DEPOSIT_ALIGN_TOLERANCE_TICKS 100
+
+// Deposit distance: target and tolerance, measured from the ultrasonic sensor face to the rod.
+// Reverse also backs off by an extra margin so the final correction is made moving forward.
+#define DEPOSIT_TARGET_RANGE_MM     410U
+#define DEPOSIT_RANGE_TOLERANCE_MM  10U
+#define DEPOSIT_REVERSE_MARGIN_MM   100U
+#define DEPOSIT_REVERSE_SPEED_MM_S  50
+#define DEPOSIT_APPROACH_SPEED_MM_S 35
+
+// Hold still for about 300 ms at the Kobuki's normal 50 Hz feedback rate.
+// This lets the 10 Hz ultrasonic output catch up after turning or stopping.
+#define DEPOSIT_SETTLE_PACKETS 15U
+
 // Which test-area layout was identified.
 typedef enum { LAYOUT_NONE, LAYOUT_A, LAYOUT_B } Layout;
 
@@ -49,11 +72,15 @@ typedef struct {
     US_Typedef object;
     Layout layout;
     int16_t heading;
-    uint8_t corridor;              // 1 = first corridor, 2 = second
-    int16_t pathfind_recover_deg;  // turn to apply after the Reverse
-    int16_t scan_prev_angle;       // last gyro reading, for the wrap-safe turn sum
-    int32_t scan_ticks;            // total turn in 0.01 deg gyro ticks
-    int16_t scan_deg;              // total turn in degrees
+    uint8_t corridor;                // 1 = first corridor, 2 = second
+    int16_t pathfind_recover_deg;    // turn to apply after the Reverse
+    int16_t scan_prev_angle;         // last gyro reading, for the wrap-safe turn sum
+    int32_t scan_ticks;              // total turn in 0.01 deg gyro ticks
+    int16_t scan_deg;                // total turn in degrees
+    US_Typedef deposit_rod;          // closest valid target seen during the Deposit scan
+    int16_t deposit_rod_angle;       // gyro heading of that target, in 0.01 deg ticks
+    uint16_t deposit_range_mm;       // live reading while adjusting distance; keeps the scan result above intact
+    uint8_t deposit_settle_packets;  // packets left to hold still before the next distance check
 } RobotData;
 
 // The one global RobotData instance.
@@ -80,8 +107,20 @@ void Scan_Update_Turn(int16_t angle_tick);
 // Update scan_deg from the gyro and read the ultrasonic once.
 void Scan_Sample(void);
 
-// True once the AMU has turned a full circle without finding anything.
+// True once the AMU has turned a full circle anticlockwise.
 bool Scan_Gave_Up(void);
+
+// Start a fresh full-circle Deposit scan, forgetting the previous closest rod.
+void Deposit_Scan_Start(int16_t angle_tick);
+
+// Keep the shortest valid ultrasonic range and its gyro heading throughout the scan.
+void Deposit_Scan_Sample(void);
+
+// Signed shortest turn to the saved rod heading, in 0.01 degree ticks; positive is anticlockwise.
+int16_t Deposit_Rod_Turn_Ticks(void);
+
+// Update deposit_range_mm; false for zero or a maximum-range/no-echo reading.
+bool Deposit_Read_Range(void);
 
 // Storage-wall bumper in Drive. Latches the nudge away from the wall into pathfind_recover_deg.
 bool Corridor_Take_Wall_Hit(uint8_t bumper);
