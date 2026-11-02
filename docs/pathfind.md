@@ -65,9 +65,9 @@ Each Pathfind case in `Src/main.c` checks conditions in priority order and takes
 
 ## Drive
 
-- **Do:** `Kobuki_Drive(PATHFIND_DRIVE_SPEED)` (150 mm/s, the Kobuki speed limit).
+- **Do:** `Kobuki_Drive(PATHFIND_DRIVE_SPEED_MM_S)` (150 mm/s, the Kobuki speed limit).
 - **Front cliff:** the centre cliff sensor sees the ledge. Corridor 1 goes to Corridor reverse. Corridor 2 goes to Corridor stop.
-- **Storage-wall bumper:** `Corridor_Take_Wall_Hit`. Layout A left (`0x04`), Layout B right (`0x01`). It latches `pathfind_recover_deg` to `PATHFIND_ROTATE_A_DEG` or `PATHFIND_ROTATE_B_DEG` and enters Reverse. Ledge-side bumper is ignored.
+- **Storage-wall bumper:** `Corridor_Take_Wall_Hit`. Layout A left (`0x04`), Layout B right (`0x01`). It latches `pathfind_recover_deg` to `PATHFIND_RECOVER_TURN_LAYOUT_A_DEG` or `PATHFIND_RECOVER_TURN_LAYOUT_B_DEG` and enters Reverse. Ledge-side bumper is ignored.
 - **Ledge cliff:** `Corridor_Take_Ledge_Hit`. Layout A right (`0x01`), Layout B left (`0x04`). It latches the opposite nudge and enters Reverse. Storage-wall-side cliff is ignored.
 
 ## Reverse
@@ -100,10 +100,10 @@ If Drive still sees the wall bumper or ledge cliff on the next packet after Rota
 
 | Macro | Value | Used by |
 | --- | --- | --- |
-| `PATHFIND_DRIVE_SPEED` | 150 | Drive |
+| `PATHFIND_DRIVE_SPEED_MM_S` | 150 | Drive |
 | `PATHFIND_REVERSE_MM` | 50 | Reverse, Corridor reverse |
-| `PATHFIND_ROTATE_A_DEG` / `_B_DEG` | −5 / +5 | wall hit latches into `pathfind_recover_deg` (a ledge cliff latches the opposite) |
-| `PATHFIND_CORNER_A_DEG` / `_B_DEG` | +90 / −90 | Corridor turn |
+| `PATHFIND_RECOVER_TURN_LAYOUT_A_DEG` / `_B_DEG` | −5 / +5 | wall hit latches into `pathfind_recover_deg` (a ledge cliff latches the opposite) |
+| `PATHFIND_CORNER_TURN_LAYOUT_A_DEG` / `_B_DEG` | +90 / −90 | Corridor turn |
 
 Angles are in degrees, + = anticlockwise (`Kobuki_Rotate`: +ve is CCW). All values are tunable in `Src/Helper/helper.h`.
 
@@ -124,4 +124,8 @@ python3 docs/amu_fsm_gen.py     # rewrite docs/amu_fsm.drawio
 python3 docs/amu_fsm_check.py   # exit 1 if the diagram and the code disagree
 ```
 
-After regenerating, export the PNG from draw.io (File > Export as > PNG, zoom 200%, border 20) to refresh `amu_fsm_preview.png`.
+After regenerating, refresh `amu_fsm_preview.png` with [`amu_fsm_render.js`](amu_fsm_render.js), which draws the `.drawio` with the real draw.io viewer in headless Chromium (200%, 20 px border, same as File > Export as > PNG). It needs the `playwright` npm package and network access once to fetch the viewer:
+
+```bash
+node docs/amu_fsm_render.js     # rewrite docs/amu_fsm_preview.png
+```
