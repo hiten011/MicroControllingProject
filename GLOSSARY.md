@@ -108,7 +108,11 @@ The State at the end of the second corridor: the AMU stops once, ending Pathfind
 _Avoid_: Front-cliff stop, pathfind done, arrival
 
 **Storage** (phase):
+<<<<<<< Updated upstream
 The phase in which the AMU faces the entrance, drives into the storage unit, and finishes at the Deposit State. It spans Turn, Drive-in and Deposit.
+=======
+The phase in which the AMU faces the entrance, drives into the storage unit, scans for the closest target, refines its heading, and adjusts to the configured ultrasonic range (currently 410 mm). It spans Turn, Drive-in, Deposit, Deposit align, Deposit refine turn/sample, Deposit distance, Deposit reverse and Deposit approach.
+>>>>>>> Stashed changes
 _Avoid_: STORAGE when the storage unit itself is meant
 
 **Turn** (Storage):
@@ -123,6 +127,24 @@ _Avoid_: enter, DRIVE_IN (code id), Drive (already the Pathfind State)
 The State after Drive-in in which the AMU stops inside the storage unit. Deposit-location sensing is not part of this State yet.
 _Avoid_: DEPOSIT (code id), drop-off (the place is Deposit location)
 
+<<<<<<< Updated upstream
+=======
+**Deposit align**:
+The State that turns by the shortest route to the target heading. After Deposit it returns to the coarse heading within 1° and starts the local refinement. After refinement it returns to the centre of the nearest echo group, stops when the heading error is within 0.5°, and enters Deposit distance. B1 or wheeldrop stops it through Fault.
+
+**Deposit refine turn/sample**:
+The States that scan ±25° around the coarse heading in 2° steps. Turn uses 35 mm/s wheel speed; Sample stops for about 300 ms and takes the median of three readings spaced about 100 ms apart. After the sweep, the centre of the widest contiguous group within 10 mm of the local minimum becomes the refined heading. Tied groups prefer the coarse heading. With no valid echo, the AMU stops through Fault. B1 or wheeldrop stops either State immediately.
+
+**Deposit distance**:
+The stopped State after alignment or a distance correction. It waits about 300 ms for the ultrasonic output to catch up, then checks the live range. Below target minus 10 mm it enters Deposit reverse; above target plus 10 mm it enters Deposit approach; within that band it lights LED 1 green and enters Idle. The current target is 410 mm from the sensor face to the rod.
+
+**Deposit reverse**:
+The State that backs away at 50 mm/s until the ultrasonic reads at least target plus 100 mm, then stops in Deposit distance before approaching forward. The extra 100 mm provides room to finish the correction moving forward.
+
+**Deposit approach**:
+The State that moves forward at 35 mm/s until the ultrasonic reads at most target plus 10 mm, then stops in Deposit distance to check the settled reading. B1, wheeldrop, any bumper or cliff, or a zero/no-echo reading stops any Deposit distance-adjustment State through Fault.
+
+>>>>>>> Stashed changes
 ### Running the FSM
 
 **Idle**:

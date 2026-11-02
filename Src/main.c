@@ -24,6 +24,15 @@ typedef enum {
     ST_TURN,
     ST_DRIVE_IN,
     ST_DEPOSIT,
+<<<<<<< Updated upstream
+=======
+    ST_DEPOSIT_ALIGN,
+    ST_DEPOSIT_REFINE_TURN,
+    ST_DEPOSIT_REFINE_SAMPLE,
+    ST_DEPOSIT_DISTANCE,
+    ST_DEPOSIT_REVERSE,
+    ST_DEPOSIT_APPROACH,
+>>>>>>> Stashed changes
     ST_FAULT
 } State;
 
@@ -59,6 +68,26 @@ static void change_to(State next)
             Kobuki_Drive(STOP);
             break;
 
+<<<<<<< Updated upstream
+=======
+        case ST_DEPOSIT:
+            Kobuki_Drive(STOP);
+            Deposit_Scan_Start(robot.kobuki.angle);
+            Kobuki_Update_LEDs(OFF, OFF);
+            break;
+
+        case ST_DEPOSIT_DISTANCE:
+            Kobuki_Drive(STOP);
+            robot.deposit_settle_packets = DEPOSIT_SETTLE_PACKETS;
+            Kobuki_Update_LEDs(YELLOW, OFF);
+            break;
+
+        case ST_DEPOSIT_REFINE_SAMPLE:
+            Kobuki_Drive(STOP);
+            Deposit_Refine_Settle();
+            break;
+
+>>>>>>> Stashed changes
         case ST_ORIENT:
             Kobuki_Rotate_Angle_Setpoint(robot.kobuki.angle, Layout_Pick(ORIENT_A_DEG, ORIENT_B_DEG));
             break;
@@ -263,7 +292,137 @@ int main(void)
                     change_to(ST_FAULT);
                     break;
                 }
+<<<<<<< Updated upstream
                 change_to(ST_IDLE);
+=======
+                Deposit_Scan_Sample();
+                if (Scan_Gave_Up()) {
+                    Kobuki_Drive(STOP);
+                    if (robot.deposit_rod.detected) {
+                        change_to(ST_DEPOSIT_ALIGN);
+                    } else {
+                        Kobuki_Update_LEDs(RED, OFF);
+                        change_to(ST_IDLE);
+                    }
+                    break;
+                }
+                Kobuki_Rotate(DEPOSIT_SCAN_SPEED_MM_S);
+                break;
+
+            case ST_DEPOSIT_ALIGN: {
+                if (Fault_B1_Wheeldrop()) {
+                    change_to(ST_FAULT);
+                    break;
+                }
+                int16_t turn = Deposit_Rod_Turn_Ticks();
+                int16_t tolerance =
+                    robot.deposit_refined ? DEPOSIT_REFINE_TOLERANCE_TICKS : DEPOSIT_ALIGN_TOLERANCE_TICKS;
+                if (turn >= -tolerance && turn <= tolerance) {
+                    Kobuki_Drive(STOP);
+                    if (robot.deposit_refined) {
+                        change_to(ST_DEPOSIT_DISTANCE);
+                    } else {
+                        Deposit_Refine_Start();
+                        change_to(ST_DEPOSIT_REFINE_TURN);
+                    }
+                    break;
+                }
+                int16_t speed = robot.deposit_refined ? DEPOSIT_REFINE_SPEED_MM_S : DEPOSIT_SCAN_SPEED_MM_S;
+                Kobuki_Rotate(turn > 0 ? speed : -speed);
+                break;
+            }
+
+            case ST_DEPOSIT_REFINE_TURN: {
+                if (Fault_B1_Wheeldrop()) {
+                    change_to(ST_FAULT);
+                    break;
+                }
+                int16_t turn = Deposit_Refine_Turn_Ticks();
+                if (turn >= -DEPOSIT_REFINE_TOLERANCE_TICKS && turn <= DEPOSIT_REFINE_TOLERANCE_TICKS) {
+                    change_to(ST_DEPOSIT_REFINE_SAMPLE);
+                    break;
+                }
+                Kobuki_Rotate(turn > 0 ? DEPOSIT_REFINE_SPEED_MM_S : -DEPOSIT_REFINE_SPEED_MM_S);
+                break;
+            }
+
+            case ST_DEPOSIT_REFINE_SAMPLE:
+                if (Fault_B1_Wheeldrop()) {
+                    change_to(ST_FAULT);
+                    break;
+                }
+                Kobuki_Drive(STOP);
+                if (!Deposit_Refine_Sample()) {
+                    break;
+                }
+                if (Deposit_Refine_Next()) {
+                    change_to(ST_DEPOSIT_REFINE_TURN);
+                } else if (Deposit_Refine_Finish()) {
+                    change_to(ST_DEPOSIT_ALIGN);
+                } else {
+                    Kobuki_Update_LEDs(RED, OFF);
+                    change_to(ST_FAULT);
+                }
+                break;
+
+            case ST_DEPOSIT_DISTANCE:
+                if (Fault_Any()) {
+                    change_to(ST_FAULT);
+                    break;
+                }
+                if (robot.deposit_settle_packets > 0) {
+                    robot.deposit_settle_packets--;
+                    Kobuki_Drive(STOP);
+                    break;
+                }
+                if (!Deposit_Read_Range()) {
+                    Kobuki_Update_LEDs(RED, OFF);
+                    change_to(ST_FAULT);
+                    break;
+                }
+                if (robot.deposit_range_mm < DEPOSIT_TARGET_RANGE_MM - DEPOSIT_RANGE_TOLERANCE_MM) {
+                    change_to(ST_DEPOSIT_REVERSE);
+                } else if (robot.deposit_range_mm > DEPOSIT_TARGET_RANGE_MM + DEPOSIT_RANGE_TOLERANCE_MM) {
+                    change_to(ST_DEPOSIT_APPROACH);
+                } else {
+                    Kobuki_Update_LEDs(GREEN, OFF);
+                    change_to(ST_IDLE);
+                }
+                break;
+
+            case ST_DEPOSIT_REVERSE:
+                if (Fault_Any()) {
+                    change_to(ST_FAULT);
+                    break;
+                }
+                if (!Deposit_Read_Range()) {
+                    Kobuki_Update_LEDs(RED, OFF);
+                    change_to(ST_FAULT);
+                    break;
+                }
+                if (robot.deposit_range_mm >= DEPOSIT_TARGET_RANGE_MM + DEPOSIT_REVERSE_MARGIN_MM) {
+                    change_to(ST_DEPOSIT_DISTANCE);
+                    break;
+                }
+                Kobuki_Drive(-DEPOSIT_REVERSE_SPEED);
+                break;
+
+            case ST_DEPOSIT_APPROACH:
+                if (Fault_Any()) {
+                    change_to(ST_FAULT);
+                    break;
+                }
+                if (!Deposit_Read_Range()) {
+                    Kobuki_Update_LEDs(RED, OFF);
+                    change_to(ST_FAULT);
+                    break;
+                }
+                if (robot.deposit_range_mm <= DEPOSIT_TARGET_RANGE_MM + DEPOSIT_RANGE_TOLERANCE_MM) {
+                    change_to(ST_DEPOSIT_DISTANCE);
+                    break;
+                }
+                Kobuki_Drive(DEPOSIT_APPROACH_SPEED);
+>>>>>>> Stashed changes
                 break;
 
             case ST_FAULT:

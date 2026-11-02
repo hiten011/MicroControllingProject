@@ -36,7 +36,51 @@
 #define STORAGE_TURN_B_DEG  (-131)
 #define STORAGE_DRIVE_IN_MM 900
 
+<<<<<<< Updated upstream
+=======
+// Start directly in Deposit for bench testing. Set to 0 for the full parcel run.
+#ifndef DEPOSIT_TEST_MODE
+#define DEPOSIT_TEST_MODE 1
+#endif
+
+// Slow enough for the ultrasonic's 10 Hz output while turning anticlockwise.
+#define DEPOSIT_SCAN_SPEED_MM_S 50
+
+// Stop facing the saved measurement within 1 degree (gyro ticks are 0.01 degree).
+#define DEPOSIT_ALIGN_TOLERANCE_TICKS 100
+
+// Refine the coarse heading with a stationary median of 3 readings at each step.
+#define DEPOSIT_REFINE_HALF_ANGLE_DEG  25
+#define DEPOSIT_REFINE_STEP_DEG        2
+#define DEPOSIT_REFINE_POINTS          ((2 * DEPOSIT_REFINE_HALF_ANGLE_DEG) / DEPOSIT_REFINE_STEP_DEG + 1)
+#define DEPOSIT_REFINE_SPEED_MM_S      35
+#define DEPOSIT_REFINE_TOLERANCE_TICKS 50
+#define DEPOSIT_REFINE_RANGE_BAND_MM   10U
+#define DEPOSIT_REFINE_SAMPLE_PACKETS  5U  // About 100 ms between readings at 50 Hz.
+
+// Distances are measured from the ultrasonic sensor face to the rod.
+#define DEPOSIT_TARGET_RANGE_MM   410U
+#define DEPOSIT_RANGE_TOLERANCE_MM 10U
+#define DEPOSIT_REVERSE_MARGIN_MM 100U
+#define DEPOSIT_REVERSE_SPEED     50
+#define DEPOSIT_APPROACH_SPEED    35
+
+// Hold still for about 300 ms at the Kobuki's normal 50 Hz feedback rate.
+// This lets the 10 Hz ultrasonic output catch up after turning or stopping.
+#define DEPOSIT_SETTLE_PACKETS 15U
+
+>>>>>>> Stashed changes
 typedef enum { LAYOUT_NONE, LAYOUT_A, LAYOUT_B } Layout;
+
+typedef struct {
+    int16_t base_angle;
+    int16_t angles[DEPOSIT_REFINE_POINTS];
+    uint16_t ranges[DEPOSIT_REFINE_POINTS];
+    uint16_t readings[3];
+    uint8_t point;
+    uint8_t sample_count;
+    uint8_t wait_packets;
+} DepositRefine;
 
 typedef struct {
     Kobuki_Typedef kobuki;
@@ -48,6 +92,15 @@ typedef struct {
     int16_t scan_prev_angle;
     int32_t scan_ticks;
     int16_t scan_deg;
+<<<<<<< Updated upstream
+=======
+    US_Typedef deposit_rod;
+    int16_t deposit_rod_angle;  // Absolute gyro heading in 0.01 degree ticks.
+    uint16_t deposit_range_mm;  // Live reading while adjusting distance; preserves the scan result above.
+    uint8_t deposit_settle_packets;
+    bool deposit_refined;
+    DepositRefine deposit_refine;
+>>>>>>> Stashed changes
 } RobotData;
 
 extern RobotData robot;
@@ -76,6 +129,31 @@ void Scan_Sample(void);
 // True once the AMU has turned a full circle without finding anything.
 bool Scan_Gave_Up(void);
 
+<<<<<<< Updated upstream
+=======
+// Start a fresh full-circle Deposit scan, forgetting the previous closest rod.
+void Deposit_Scan_Start(int16_t angle_tick);
+
+// Keep the shortest valid ultrasonic range and its gyro heading throughout the scan.
+void Deposit_Scan_Sample(void);
+
+// Signed shortest turn to the saved rod heading, in 0.01 degree ticks; positive is anticlockwise.
+int16_t Deposit_Rod_Turn_Ticks(void);
+
+// Sweep around the coarse heading; turn, settle, and take 3 independent readings at each point.
+void Deposit_Refine_Start(void);
+int16_t Deposit_Refine_Turn_Ticks(void);
+void Deposit_Refine_Settle(void);
+bool Deposit_Refine_Sample(void);
+bool Deposit_Refine_Next(void);
+
+// Centre the widest contiguous group within 10 mm of the local minimum; false if no rod was seen.
+bool Deposit_Refine_Finish(void);
+
+// Update deposit_range_mm; false for zero or a maximum-range/no-echo reading.
+bool Deposit_Read_Range(void);
+
+>>>>>>> Stashed changes
 // Storage-wall bumper in Drive. Latches the nudge away from the wall into pathfind_recover_deg.
 bool Corridor_Take_Wall_Hit(uint8_t bumper);
 
