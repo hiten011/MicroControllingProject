@@ -1,8 +1,8 @@
-#include "my_stm_helper.h"
 #include "uart.h"
 #include "adc.h"
 #include "helper.h"
 
+// The AMU's finite-state-machine states, grouped by phase.
 typedef enum {
     ST_IDLE,
 
@@ -27,6 +27,7 @@ typedef enum {
     ST_FAULT
 } State;
 
+// Current state, only changed through change_to().
 static State state = ST_IDLE;
 
 // A transition runs the old State's exit, then the new State's entry.
@@ -34,6 +35,7 @@ static void change_to(State next)
 {
     switch (state) {
         case ST_IDLE:
+            // Leaving IDLE starts a new run, so clear the previous one.
             robot.layout = LAYOUT_NONE;
             robot.object.detected = 0;
             robot.heading = 0;
@@ -42,6 +44,7 @@ static void change_to(State next)
             break;
 
         case ST_CORRIDOR_TURN:
+            // Remember the heading the corner turn ended on.
             robot.heading = robot.kobuki.angle;
             break;
 
@@ -60,7 +63,8 @@ static void change_to(State next)
             break;
 
         case ST_ORIENT:
-            Kobuki_Rotate_Angle_Setpoint(robot.kobuki.angle, Layout_Pick(ORIENT_A_DEG, ORIENT_B_DEG));
+            Kobuki_Rotate_Angle_Setpoint(robot.kobuki.angle,
+                                         Layout_Pick(ORIENT_TURN_LAYOUT_A_DEG, ORIENT_TURN_LAYOUT_B_DEG));
             break;
 
         case ST_REVERSE:
@@ -73,11 +77,13 @@ static void change_to(State next)
             break;
 
         case ST_CORRIDOR_TURN:
-            Kobuki_Rotate_Angle_Setpoint(robot.kobuki.angle, Layout_Pick(PATHFIND_CORNER_A_DEG, PATHFIND_CORNER_B_DEG));
+            Kobuki_Rotate_Angle_Setpoint(
+                robot.kobuki.angle, Layout_Pick(PATHFIND_CORNER_TURN_LAYOUT_A_DEG, PATHFIND_CORNER_TURN_LAYOUT_B_DEG));
             break;
 
         case ST_TURN:
-            Kobuki_Rotate_Angle_Setpoint(robot.kobuki.angle, Layout_Pick(STORAGE_TURN_A_DEG, STORAGE_TURN_B_DEG));
+            Kobuki_Rotate_Angle_Setpoint(robot.kobuki.angle,
+                                         Layout_Pick(STORAGE_TURN_LAYOUT_A_DEG, STORAGE_TURN_LAYOUT_B_DEG));
             break;
 
         case ST_DRIVE_IN:
@@ -89,6 +95,7 @@ static void change_to(State next)
     }
 }
 
+// Initialise the peripherals, then run one state step per received Kobuki packet.
 int main(void)
 {
     UART_Init();
@@ -96,18 +103,20 @@ int main(void)
     Ultrasonic_Init();
 
     while (1) {
+        // Blocks until the next packet, which paces the loop.
         Kobuki_Read(&robot.kobuki);
 
         switch (state) {
+            // Wait for B0, staying stopped.
             case ST_IDLE:
-                if ((robot.kobuki.button & BUTTON_B0) != 0) {
+                if ((robot.kobuki.button & KOBUKI_BUTTON_B0_MASK) != 0) {
                     change_to(ST_SEARCH);
                     break;
                 }
                 Kobuki_Drive(STOP);
                 break;
 
-            // SEARCH phase
+            // SEARCH phase: spin on the spot until the ultrasonic sees a bollard, or give up after a full turn.
             case ST_SEARCH:
                 if (Fault_Any()) {
                     change_to(ST_FAULT);
@@ -119,23 +128,25 @@ int main(void)
                     break;
                 }
                 if (Scan_Gave_Up()) {
-                    Kobuki_Update_LEDs(GREEN, NONE);
+                    Kobuki_Update_LEDs(GREEN, OFF);
                     change_to(ST_FAULT);
                     break;
                 }
-                Kobuki_Rotate(SCAN_SPEED_MM_S);
+                Kobuki_Rotate(SCAN_ROTATE_SPEED_MM_S);
                 break;
 
+            // Pick the Layout from the first range reading and show it on the LED.
             case ST_IDENTIFY:
                 if (Fault_Any()) {
                     change_to(ST_FAULT);
                     break;
                 }
                 robot.layout = Layout_From_Range(robot.object.range_mm);
-                Kobuki_Update_LEDs((robot.layout == LAYOUT_A) ? RED : YELLOW, NONE);
+                Kobuki_Update_LEDs((robot.layout == LAYOUT_A) ? RED : YELLOW, OFF);
                 change_to(ST_ORIENT);
                 break;
 
+            // Turn towards the first corridor.
             case ST_ORIENT:
                 if (Fault_Any()) {
                     change_to(ST_FAULT);
@@ -150,13 +161,13 @@ int main(void)
                 Kobuki_Rotate_Angle(robot.kobuki.angle);
                 break;
 
-            // PATHFIND phase
+            // PATHFIND phase: drive the corridor, backing off and nudging away from walls and ledges.
             case ST_DRIVE:
                 if (Fault_B1_Wheeldrop()) {
                     change_to(ST_FAULT);
                     break;
                 }
-                if (Kobuki_IsCliffDetected(&robot.kobuki, SIDE_CENTRE)) {
+                if (Kobuki_IsCliffDetected(&robot.kobuki, KOBUKI_SIDE_CENTRE_MASK)) {
                     change_to((robot.corridor == 1) ? ST_CORRIDOR_REVERSE : ST_CORRIDOR_STOP);
                     break;
                 }
@@ -168,9 +179,10 @@ int main(void)
                     change_to(ST_REVERSE);
                     break;
                 }
-                Kobuki_Drive(PATHFIND_DRIVE_SPEED);
+                Kobuki_Drive(PATHFIND_DRIVE_SPEED_MM_S);
                 break;
 
+            // Back off a wall or ledge hit.
             case ST_REVERSE:
                 if (Fault_B1_Wheeldrop()) {
                     change_to(ST_FAULT);
@@ -183,6 +195,7 @@ int main(void)
                 Kobuki_Drive_Distance(robot.kobuki.distance);
                 break;
 
+            // Nudge away from the wall or ledge, then resume driving.
             case ST_ROTATE:
                 if (Fault_B1_Wheeldrop()) {
                     change_to(ST_FAULT);
@@ -195,6 +208,7 @@ int main(void)
                 Kobuki_Rotate_Angle(robot.kobuki.angle);
                 break;
 
+            // Turn the corner into the second corridor.
             case ST_CORRIDOR_TURN:
                 if (Fault_B1_Wheeldrop()) {
                     change_to(ST_FAULT);
@@ -208,6 +222,7 @@ int main(void)
                 Kobuki_Rotate_Angle(robot.kobuki.angle);
                 break;
 
+            // Back off the front cliff before the corner turn.
             case ST_CORRIDOR_REVERSE:
                 if (Fault_B1_Wheeldrop()) {
                     change_to(ST_FAULT);
@@ -220,6 +235,7 @@ int main(void)
                 Kobuki_Drive_Distance(robot.kobuki.distance);
                 break;
 
+            // Reached the end of the second corridor; stop, then go to the storage phase.
             case ST_CORRIDOR_STOP:
                 if (Fault_B1_Wheeldrop()) {
                     change_to(ST_FAULT);
@@ -228,7 +244,7 @@ int main(void)
                 change_to(ST_TURN);
                 break;
 
-            // STORAGE phase
+            // STORAGE phase: face the storage unit, drive in, and stop.
             case ST_TURN:
                 if (Fault_B1_Wheeldrop()) {
                     change_to(ST_FAULT);
@@ -241,6 +257,7 @@ int main(void)
                 Kobuki_Rotate_Angle(robot.kobuki.angle);
                 break;
 
+            // Drive in until the distance is done or a bumper touches the unit.
             case ST_DRIVE_IN:
                 if (Fault_B1_Wheeldrop()) {
                     change_to(ST_FAULT);
@@ -258,6 +275,7 @@ int main(void)
                 Kobuki_Drive_Distance(robot.kobuki.distance);
                 break;
 
+            // Parcel delivered; return to IDLE for the next run.
             case ST_DEPOSIT:
                 if (Fault_B1_Wheeldrop()) {
                     change_to(ST_FAULT);
@@ -266,6 +284,7 @@ int main(void)
                 change_to(ST_IDLE);
                 break;
 
+            // Fault: motors already stopped on entry, so just go back to IDLE.
             case ST_FAULT:
                 change_to(ST_IDLE);
                 break;

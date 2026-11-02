@@ -41,9 +41,9 @@ jobs:
           cppcheck -q --std=c11 --enable=warning --inline-suppr \
             --suppress=missingInclude --suppress=missingIncludeSystem \
             --error-exitcode=1 \
-            -I Src/ADC -I Src/G474RE_Drivers -I Src/Kobuki_Drivers -I Src/Ultrasonic -I Src/stm_helper \
+            -I Src/ADC -I Src/G474RE_Drivers -I Src/Kobuki_Drivers -I Src/Ultrasonic \
             -I Src/Helper \
-            Src/main.c Src/ADC Src/G474RE_Drivers Src/Kobuki_Drivers Src/Ultrasonic Src/stm_helper \
+            Src/main.c Src/ADC Src/G474RE_Drivers Src/Kobuki_Drivers Src/Ultrasonic \
             Src/Helper
 
       - name: cppcheck (advisory)
@@ -51,7 +51,7 @@ jobs:
           cppcheck -q --std=c11 --enable=style,performance,portability --inline-suppr \
             --suppress=missingInclude --suppress=missingIncludeSystem \
             --template='::warning file={file},line={line},title=cppcheck {id}::{message}' \
-            -I Src/ADC -I Src/G474RE_Drivers -I Src/Kobuki_Drivers -I Src/Ultrasonic -I Src/stm_helper \
+            -I Src/ADC -I Src/G474RE_Drivers -I Src/Kobuki_Drivers -I Src/Ultrasonic \
             -I Src/Helper \
-            Src/main.c Src/ADC Src/G474RE_Drivers Src/Kobuki_Drivers Src/Ultrasonic Src/stm_helper \
+            Src/main.c Src/ADC Src/G474RE_Drivers Src/Kobuki_Drivers Src/Ultrasonic \
             Src/Helper

@@ -3,6 +3,7 @@
 #include "adc.h"
 #include "ultrasonic.h"
 
+// Sensor on ADC channel 1; the MB1043 output spans 0..5120 mm over the 12-bit ADC range.
 #define ULTRASONIC_CHANNEL   ADC_CHANNEL_1
 #define ADC_MAX_VALUE        4095UL
 #define MB1043_FULL_SCALE_MM 5120UL
@@ -10,7 +11,7 @@
 void Ultrasonic_Init(void)
 {
     RCC->AHB2ENR |= RCC_AHB2ENR_GPIOAEN;
-    /* PA0: analogue mode (11), no pull resistors (00). */
+    // PA0: analogue mode (11), no pull resistors (00).
     GPIOA->MODER |= GPIO_MODER_MODE0;
     GPIOA->PUPDR &= ~GPIO_PUPDR_PUPD0;
 }
@@ -18,6 +19,7 @@ void Ultrasonic_Init(void)
 uint16_t Ultrasonic_Read(void)
 {
     uint16_t adc_value = ADC_Read(ULTRASONIC_CHANNEL);
+    // Scale the ADC count to mm, rounding to nearest.
     uint32_t distance_mm = ((uint32_t)adc_value * MB1043_FULL_SCALE_MM + (ADC_MAX_VALUE / 2UL)) / ADC_MAX_VALUE;
 
     if (distance_mm > ULTRASONIC_MAX_RANGE_MM) {
