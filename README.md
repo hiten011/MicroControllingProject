@@ -36,8 +36,6 @@ LED 1 is yellow during distance adjustment, green when the settled reading is wi
 
 Inspect `robot.deposit_rod.detected`, `robot.deposit_rod.range_mm` and `robot.deposit_rod_angle` in the debugger for the scan result, and `robot.deposit_range_mm` for the live distance. The angle is the absolute Kobuki gyro heading in 0.01° ticks, wrapping at ±18000. All target distances are from the ultrasonic sensor face to the rod.
 
-To bench-test Deposit on its own, build with `DEPOSIT_TEST_MODE` set to **1** (it is **0** by default, which keeps the full parcel run). The AMU then enters Deposit automatically after the first Kobuki feedback packet, and B0 from Idle repeats the sequence instead of starting Search.
-
 ## Docs
 
 | Doc | What it is |

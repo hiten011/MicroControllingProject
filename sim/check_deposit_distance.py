@@ -22,7 +22,6 @@ def main():
             "-Wextra",
             "-Wno-enum-conversion",
             "-DSTM32G474xx",
-            "-DDEPOSIT_TEST_MODE=1",
             *[f"-I{path}" for path in includes],
             str(ROOT / "sim/check_deposit_distance.c"),
             str(ROOT / "Src/Helper/helper.c"),

@@ -92,6 +92,10 @@ void Kobuki_Read(Kobuki_Typedef *kobuki)
     }
 
     *kobuki = (Kobuki_Typedef){.angle = gyro_tick(gyro)};
+    if (packets == 1) {
+        // Start in Deposit as if Drive-in had just finished, taking the heading from this first packet.
+        change_to(ST_DEPOSIT);
+    }
     saw_reverse |= state == ST_DEPOSIT_REVERSE;
     saw_approach |= state == ST_DEPOSIT_APPROACH;
     if (injection > INJECT_NONE && injection <= INJECT_NO_ECHO && state == injection_state && !injected_at) {
@@ -271,7 +275,6 @@ static void check_refine_samples(void)
 
 int main(void)
 {
-    assert(DEPOSIT_TEST_MODE);
     check_refine_samples();
     // Start gaps are offsets from the target, so the check follows DEPOSIT_TARGET_RANGE_MM if it is retuned.
     const double offsets[] = {-120, -70, -11, -10, 0, 10, 11, 100, 380};

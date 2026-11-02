@@ -40,11 +40,6 @@
 #define STORAGE_TURN_LAYOUT_B_DEG (-131)
 #define STORAGE_DRIVE_IN_MM       900
 
-// Start directly in Deposit for bench testing. Leave at 0 for the full parcel run.
-#ifndef DEPOSIT_TEST_MODE
-#define DEPOSIT_TEST_MODE 0
-#endif
-
 // Deposit scan and align: slow enough for the ultrasonic's 10 Hz output while turning anticlockwise.
 #define DEPOSIT_SCAN_SPEED_MM_S 50
 
