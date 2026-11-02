@@ -4,27 +4,25 @@
 
 void ADC_Init(void)
 {
-    // ADC1 and ADC2 share the ADC12 clock.
+    /* ADC1 and ADC2 share the ADC12 clock. */
     RCC->AHB2ENR |= RCC_AHB2ENR_ADC12EN;
 
-    // Synchronous HCLK/1 ADC clock.
+    /* Synchronous HCLK/1 ADC clock. */
     ADC12_COMMON->CCR &= ~ADC_CCR_CKMODE;
     ADC12_COMMON->CCR |= ADC_CCR_CKMODE_0;
 
-    // Exit deep power down and power up the ADC regulator.
+    /* Exit deep power down and power up the ADC regulator. */
     ADC1->CR &= ~ADC_CR_DEEPPWD;
     ADC1->CR |= ADC_CR_ADVREGEN;
-    // Crude wait for the regulator to start up.
     for (volatile uint32_t i = 0U; i < 1000U; ++i) {
         __NOP();
     }
 
-    // Single-ended calibration (ADC must be disabled).
+    /* Single-ended calibration (ADC must be disabled). */
     ADC1->CR &= ~ADC_CR_ADCALDIF;
     ADC1->CR |= ADC_CR_ADCAL;
     while ((ADC1->CR & ADC_CR_ADCAL) != 0U) {}
 
-    // Clear the ready flag, enable the ADC, and wait until it is ready.
     ADC1->ISR = ADC_ISR_ADRDY;
     ADC1->CR |= ADC_CR_ADEN;
     while ((ADC1->ISR & ADC_ISR_ADRDY) == 0U) {}
@@ -36,10 +34,10 @@ uint16_t ADC_Read(uint8_t channel)
         return 0U;
     }
 
-    // One regular conversion (L = 0), channel in sequence slot 1.
+    /* One regular conversion (L = 0), channel in sequence slot 1. */
     ADC1->SQR1 = ((uint32_t)channel << ADC_SQR1_SQ1_Pos);
 
-    // Longest sample time (640.5 cycles) for the high-impedance analogue sensor.
+    /* Long sample time for the analogue sensor. */
     if (channel <= 9U) {
         uint32_t position = (uint32_t)channel * 3U;
         ADC1->SMPR1 &= ~(7UL << position);
@@ -50,7 +48,6 @@ uint16_t ADC_Read(uint8_t channel)
         ADC1->SMPR2 |= (7UL << position);
     }
 
-    // Clear the end flags, start the conversion, and wait for it to finish.
     ADC1->ISR = ADC_ISR_EOC | ADC_ISR_EOS;
     ADC1->CR |= ADC_CR_ADSTART;
     while ((ADC1->ISR & ADC_ISR_EOC) == 0U) {}
