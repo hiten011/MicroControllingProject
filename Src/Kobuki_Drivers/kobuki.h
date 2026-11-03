@@ -65,4 +65,6 @@ bool Kobuki_IsCliffDetected(const Kobuki_Typedef *kobuki, uint8_t side_mask);
 
 // kobuki update LEDs
 void Kobuki_Update_LEDs(Kobuki_LED_Enum led_1_colour, Kobuki_LED_Enum led_2_colour);
+// Play one note on the buzzer. The Kobuki ends it after duration_ms; a zero frequency sends nothing.
+void Kobuki_Play_Note(uint16_t freq_hz, uint8_t duration_ms);
 #endif

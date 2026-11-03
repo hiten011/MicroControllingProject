@@ -6,6 +6,9 @@
 #include "kobuki.h"
 #include "ultrasonic.h"
 
+// The Kobuki sends one feedback packet every 20 ms (50 Hz), which paces the main loop.
+#define KOBUKI_PACKET_MS 20U
+
 // Kobuki button bits: B0 starts a run, B1 is the emergency stop.
 #define KOBUKI_BUTTON_B0_MASK 0x01U
 #define KOBUKI_BUTTON_B1_MASK 0x02U
@@ -99,6 +102,8 @@ typedef struct {
     uint8_t deposit_settle_packets;  // packets left to hold still before the next distance check
     bool deposit_refined;            // true once the refine sweep has replaced the coarse heading
     DepositRefine deposit_refine;
+    uint8_t win_sound_notes_left;    // notes of the win sound still to play; 0 = silent
+    uint8_t win_sound_wait_packets;  // packets left before the next note
 } RobotData;
 
 // The one global RobotData instance.
@@ -157,6 +162,15 @@ bool Deposit_Refine_Finish(void);
 
 // Update deposit_range_mm; false for zero or a maximum-range/no-echo reading.
 bool Deposit_Read_Range(void);
+
+// Start the win sound, a 3 s victory fanfare. Play it by calling Win_Sound_Tick once per Tick.
+void Win_Sound_Start(void);
+
+// Send the next note of the win sound when its turn comes; does nothing once it has finished.
+void Win_Sound_Tick(void);
+
+// Cut the win sound short. A note already sent still finishes on the Kobuki.
+void Win_Sound_Stop(void);
 
 // Storage-wall bumper in Drive. Latches the nudge away from the wall into pathfind_recover_deg.
 bool Corridor_Take_Wall_Hit(uint8_t bumper);
