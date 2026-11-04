@@ -46,6 +46,10 @@
 // Deposit scan and align: slow enough for the ultrasonic's 10 Hz output while turning anticlockwise.
 #define DEPOSIT_SCAN_SPEED_MM_S 50
 
+// Deposit scan: echoes beyond this are ignored, so bollards and walls farther than the rod cannot become the
+// coarse heading. Keep it above the rod's range from the Drive-in stop and below the nearest other target.
+#define DEPOSIT_SCAN_MAX_RANGE_MM 3000U
+
 // Deposit align: stop facing the saved measurement within 1 degree (gyro ticks are 0.01 degree).
 #define DEPOSIT_ALIGN_TOLERANCE_TICKS 100
 

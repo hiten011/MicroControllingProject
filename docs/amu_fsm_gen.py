@@ -674,8 +674,8 @@ n3 = ("<b>Search phase</b><br>SEARCH turns anticlockwise on the spot from B0 and
       "above the A1 reading and below the nearest wall.")
 
 n4 = ("<b>Deposit</b><br>DEPOSIT turns anticlockwise through a full circle (scan_deg >= 360) at 50 mm/s and "
-      "keeps the closest valid echo (not 0, below 5000 mm) with its gyro heading. With no echo it lights LED1 "
-      "red and returns to IDLE.<br><br>"
+      "keeps the closest valid echo (not 0, at most DEPOSIT_SCAN_MAX_RANGE_MM; 5000 mm is no echo) with its "
+      "gyro heading. With no echo it lights LED1 red and returns to IDLE.<br><br>"
       "DEPOSIT_ALIGN turns the short way to the saved heading. The first time, within 100 ticks, it starts "
       "the refine sweep; once the heading is refined, within 50 ticks, it goes to DEPOSIT_DISTANCE.<br><br>"
       "The sweep visits 26 headings from -25 to +25 deg around the coarse heading, 2 deg apart. "

@@ -99,8 +99,8 @@ void Deposit_Scan_Sample(void)
     Scan_Update_Turn(robot.kobuki.angle);
     uint16_t range_mm = Ultrasonic_Read();
 
-    // Zero is invalid; the sensor's maximum range also represents no echo.
-    if (range_mm > 0 && range_mm < robot.deposit_rod.range_mm) {
+    // Zero is invalid, and anything beyond the scan cutoff is not the rod; the sensor's maximum range means no echo.
+    if (range_mm > 0 && range_mm <= DEPOSIT_SCAN_MAX_RANGE_MM && range_mm < robot.deposit_rod.range_mm) {
         robot.deposit_rod.detected = 1;
         robot.deposit_rod.range_mm = range_mm;
         robot.deposit_rod_angle = robot.kobuki.angle;

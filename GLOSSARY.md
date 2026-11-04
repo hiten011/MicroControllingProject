@@ -120,7 +120,7 @@ The State in which the AMU drives a fixed distance through the Entrance into the
 _Avoid_: enter, DRIVE_IN (code id), Drive (already the Pathfind State)
 
 **Deposit** (State):
-The State after Drive-in in which the AMU turns anticlockwise through a full 360°, remembers the closest valid ultrasonic target and its gyro heading (the coarse heading), then enters Deposit align. With no valid echo, it lights LED 1 red and stops in Idle.
+The State after Drive-in in which the AMU turns anticlockwise through a full 360°, remembers the closest valid ultrasonic target within `DEPOSIT_SCAN_MAX_RANGE_MM` and its gyro heading (the coarse heading), then enters Deposit align. Echoes beyond that range are ignored. With no valid echo, it lights LED 1 red and stops in Idle.
 _Avoid_: DEPOSIT (code id), drop-off (the place is Deposit location)
 
 **Deposit align**:
