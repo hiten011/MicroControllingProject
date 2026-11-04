@@ -22,13 +22,13 @@ DRAWIO = sys.argv[1] if len(sys.argv) > 1 else os.path.join(REPO, "docs", "amu_f
 
 # ST_* enum name -> diagram cell id
 ID = {
-    "ST_IDLE": "idle", "ST_SEARCH": "search", "ST_IDENTIFY": "identify", "ST_ORIENT": "orient",
-    "ST_DRIVE": "p_drive", "ST_REVERSE": "p_reverse", "ST_ROTATE": "p_rotate",
-    "ST_CORRIDOR_REVERSE": "p_creverse", "ST_CORRIDOR_TURN": "p_cturn", "ST_CORRIDOR_STOP": "p_cstop",
-    "ST_TURN": "turn", "ST_DRIVE_IN": "drive_in", "ST_DEPOSIT": "deposit",
-    "ST_DEPOSIT_ALIGN": "d_align", "ST_DEPOSIT_REFINE_TURN": "d_rturn",
-    "ST_DEPOSIT_REFINE_SAMPLE": "d_rsample", "ST_DEPOSIT_DISTANCE": "d_dist",
-    "ST_DEPOSIT_REVERSE": "d_rev", "ST_DEPOSIT_APPROACH": "d_app", "ST_FAULT": "fault",
+    "STATE_IDLE": "idle", "STATE_SEARCH": "search", "STATE_IDENTIFY": "identify", "STATE_ORIENT": "orient",
+    "STATE_DRIVE": "p_drive", "STATE_REVERSE": "p_reverse", "STATE_ROTATE": "p_rotate",
+    "STATE_CORRIDOR_REVERSE": "p_creverse", "STATE_CORRIDOR_TURN": "p_cturn", "STATE_CORRIDOR_STOP": "p_cstop",
+    "STATE_TURN": "turn", "STATE_DRIVE_IN": "drive_in", "STATE_DEPOSIT": "deposit",
+    "STATE_DEPOSIT_ALIGN": "d_align", "STATE_DEPOSIT_REFINE_TURN": "d_rturn",
+    "STATE_DEPOSIT_REFINE_SAMPLE": "d_rsample", "STATE_DEPOSIT_DISTANCE": "d_dist",
+    "STATE_DEPOSIT_REVERSE": "d_rev", "STATE_DEPOSIT_APPROACH": "d_app", "STATE_FAULT": "fault",
 }
 problems = []
 
@@ -59,8 +59,8 @@ for name, body in zip(blocks[1::2], blocks[2::2]):
     code_pred[src] = ("Fault_Any" if "Fault_Any()" in body
                       else "Fault_B1_Wheeldrop" if "Fault_B1_Wheeldrop()" in body else None)
     # a fault edge that is not just the Fault_*() predicate check is State-specific (give-up, no echo ...)
-    rest = re.sub(r"if \(Fault_\w+\(\)\) \{\s*change_to\(ST_FAULT\);\s*break;\s*\}", "", body)
-    code_specific[src] = "change_to(ST_FAULT)" in rest
+    rest = re.sub(r"if \(Fault_\w+\(\)\) \{\s*change_to\(STATE_FAULT\);\s*break;\s*\}", "", body)
+    code_specific[src] = "change_to(STATE_FAULT)" in rest
 
 states_enum = set(re.findall(r"\bST_\w+", main_c[:main_c.index("} State;")]))
 check(states_enum == set(ID), "ST_* enum == the %d States the diagram maps (%s)" % (len(ID), sorted(states_enum ^ set(ID))))
