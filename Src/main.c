@@ -41,7 +41,8 @@ static void change_to(State next)
 {
     switch (state) {
         case ST_IDLE:
-            // Leaving IDLE starts a new run, so clear the previous one.
+            // Leaving IDLE starts a new run, so clear the previous one and cut any win sound still playing.
+            Win_Sound_Stop();
             robot.layout = LAYOUT_NONE;
             robot.object.detected = 0;
             robot.heading = 0;
@@ -129,13 +130,14 @@ int main(void)
         Kobuki_Read(&robot.kobuki);
 
         switch (state) {
-            // Wait for B0, staying stopped.
+            // Wait for B0, staying stopped, and play out the win sound after a deposit.
             case ST_IDLE:
                 if ((robot.kobuki.button & KOBUKI_BUTTON_B0_MASK) != 0) {
                     change_to(ST_SEARCH);
                     break;
                 }
                 Kobuki_Drive(STOP);
+                Win_Sound_Tick();
                 break;
 
             // SEARCH phase: spin on the spot until the ultrasonic sees a bollard, or give up after a full turn.
@@ -399,6 +401,7 @@ int main(void)
                     change_to(ST_DEPOSIT_APPROACH);
                 } else {
                     Kobuki_Update_LEDs(GREEN, OFF);
+                    Win_Sound_Start();
                     change_to(ST_IDLE);
                 }
                 break;

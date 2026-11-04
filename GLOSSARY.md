@@ -120,7 +120,7 @@ The State in which the AMU drives a fixed distance through the Entrance into the
 _Avoid_: enter, DRIVE_IN (code id), Drive (already the Pathfind State)
 
 **Deposit** (State):
-The State after Drive-in in which the AMU turns anticlockwise through a full 360°, remembers the closest valid ultrasonic target and its gyro heading (the coarse heading), then enters Deposit align. With no valid echo, it lights LED 1 red and stops in Idle.
+The State after Drive-in in which the AMU turns anticlockwise through a full 360°, remembers the closest valid ultrasonic target within `DEPOSIT_SCAN_MAX_RANGE_MM` and its gyro heading (the coarse heading), then enters Deposit align. Echoes beyond that range are ignored. With no valid echo, it lights LED 1 red and stops in Idle.
 _Avoid_: DEPOSIT (code id), drop-off (the place is Deposit location)
 
 **Deposit align**:
@@ -130,13 +130,17 @@ The State that turns by the shortest route to the saved target heading. After De
 The States that scan ±25° around the coarse heading in 2° steps. Turn uses 35 mm/s wheel speed; Sample stops for about 300 ms and takes the median of three readings spaced about 100 ms apart. After the sweep, the centre of the widest contiguous group within 10 mm of the local minimum becomes the refined heading. Tied groups prefer the coarse heading. With no valid echo, it lights LED 1 red and stops through Fault. B1 or wheeldrop stops either State immediately.
 
 **Deposit distance**:
-The stopped State after alignment or a distance correction. It waits about 300 ms for the ultrasonic output to catch up, then checks the live range against `DEPOSIT_TARGET_RANGE_MM` ± `DEPOSIT_RANGE_TOLERANCE_MM`. Below that band it enters Deposit reverse; above it, Deposit approach; within it, it lights LED 1 green and enters Idle.
+The stopped State after alignment or a distance correction. It waits about 300 ms for the ultrasonic output to catch up, then checks the live range against `DEPOSIT_TARGET_RANGE_MM` ± `DEPOSIT_RANGE_TOLERANCE_MM`. Below that band it enters Deposit reverse; above it, Deposit approach; within it, it lights LED 1 green, starts the Win sound and enters Idle.
 
 **Deposit reverse**:
 The State that backs away at 50 mm/s until the ultrasonic reads at least the target plus `DEPOSIT_REVERSE_MARGIN_MM`, then stops in Deposit distance before approaching forward. The extra margin provides room to finish the correction moving forward.
 
 **Deposit approach**:
 The State that moves forward at 35 mm/s until the ultrasonic reads at most the target plus the tolerance, then stops in Deposit distance to check the settled reading. B1, wheeldrop, any bumper or cliff, or a zero/no-echo reading stops any Deposit distance-adjustment State through Fault.
+
+**Win sound**:
+The victory fanfare the AMU plays on the Kobuki's buzzer when a deposit succeeds: "beep beep beep yahh", a short step up to a second "yahh", a rising run and a long high finish, 3 s in all. The Kobuki has no volume setting, so the notes are high, where the buzzer is loudest. Deposit distance starts it as it enters Idle, and Idle sends one note per Tick, so nothing blocks. Starting a new run (leaving Idle) cuts it short. A failed run (no echo, Fault) is silent.
+_Avoid_: Jingle, beep (alone)
 
 ### Running the FSM
 

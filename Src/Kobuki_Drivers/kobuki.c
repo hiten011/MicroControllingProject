@@ -285,3 +285,19 @@ void Kobuki_Update_LEDs(Kobuki_LED_Enum led_1_colour, Kobuki_LED_Enum led_2_colo
 
     Kobuki_Tx(payload, sizeof(payload));
 }
+
+// This wrapper is based on the Sound information in the Kobuki bytestream document.
+// The note is 1 / (frequency * 0.00000275), worked out in integers as 363636 / frequency, rounded.
+#define SOUND_NOTE_NUMERATOR 363636U
+void Kobuki_Play_Note(uint16_t freq_hz, uint8_t duration_ms)
+{
+    if (freq_hz == 0U) {
+        return;
+    }
+
+    uint16_t note = (uint16_t)((SOUND_NOTE_NUMERATOR + (freq_hz / 2U)) / freq_hz);
+
+    uint8_t payload[] = {0x03, 0x03, (uint8_t)note, (uint8_t)(note >> 8), duration_ms};
+
+    Kobuki_Tx(payload, sizeof(payload));
+}

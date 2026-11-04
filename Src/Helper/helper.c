@@ -99,8 +99,8 @@ void Deposit_Scan_Sample(void)
     Scan_Update_Turn(robot.kobuki.angle);
     uint16_t range_mm = Ultrasonic_Read();
 
-    // Zero is invalid; the sensor's maximum range also represents no echo.
-    if (range_mm > 0 && range_mm < robot.deposit_rod.range_mm) {
+    // Zero is invalid, and anything beyond the scan cutoff is not the rod; the sensor's maximum range means no echo.
+    if (range_mm > 0 && range_mm <= DEPOSIT_SCAN_MAX_RANGE_MM && range_mm < robot.deposit_rod.range_mm) {
         robot.deposit_rod.detected = 1;
         robot.deposit_rod.range_mm = range_mm;
         robot.deposit_rod_angle = robot.kobuki.angle;
@@ -225,6 +225,75 @@ bool Deposit_Read_Range(void)
 {
     robot.deposit_range_mm = Ultrasonic_Read();
     return robot.deposit_range_mm > 0 && robot.deposit_range_mm < ULTRASONIC_MAX_RANGE_MM;
+}
+
+// One note of the win sound: its pitch, how long it sounds, and the silence before the next note.
+typedef struct {
+    uint16_t freq_hz;
+    uint8_t duration_ms;
+    uint8_t pause_ms;
+} WinSoundNote;
+
+// Pitches in Hz. They are high because a small piezo buzzer is loudest at about 2 to 4 kHz.
+#define NOTE_D_FLAT_7 2217U
+#define NOTE_E_FLAT_7 2489U
+#define NOTE_F_7      2794U
+#define NOTE_A_7      3520U
+#define NOTE_C_8      4186U
+
+// A victory fanfare of 3 s: three beeps and a long note, a short step up to a second long note, a rising run, then a
+// long high finish. The Kobuki plays at most 255 ms per note, so a long note is several notes of the same pitch with
+// no pause between them. Every duration and pause is a multiple of KOBUKI_PACKET_MS, so each note starts on a packet,
+// and no note is cut off by the next one.
+static const WinSoundNote win_sound[] = {
+    {NOTE_F_7, 100, 60},      // beep
+    {NOTE_F_7, 100, 60},      // beep
+    {NOTE_F_7, 100, 60},      // beep
+    {NOTE_F_7, 240, 0},       // yahh, held
+    {NOTE_F_7, 240, 80},      //
+    {NOTE_D_FLAT_7, 120, 0},  // step up
+    {NOTE_E_FLAT_7, 120, 0},  //
+    {NOTE_F_7, 240, 0},       // second yahh, held
+    {NOTE_F_7, 240, 40},      //
+    {NOTE_F_7, 100, 0},       // rising run
+    {NOTE_A_7, 100, 0},       //
+    {NOTE_C_8, 100, 0},       //
+    {NOTE_C_8, 240, 0},       // high finish, held
+    {NOTE_C_8, 240, 0},       //
+    {NOTE_C_8, 240, 0},       //
+    {NOTE_C_8, 180, 0},       //
+};
+
+#define WIN_SOUND_NOTES ((uint8_t)(sizeof(win_sound) / sizeof(win_sound[0])))
+
+void Win_Sound_Start(void)
+{
+    robot.win_sound_notes_left = WIN_SOUND_NOTES;
+    robot.win_sound_wait_packets = 0;
+}
+
+void Win_Sound_Tick(void)
+{
+    if (robot.win_sound_notes_left == 0) {
+        return;
+    }
+    if (robot.win_sound_wait_packets > 0) {
+        robot.win_sound_wait_packets--;
+        return;
+    }
+
+    const WinSoundNote *note = &win_sound[WIN_SOUND_NOTES - robot.win_sound_notes_left];
+    Kobuki_Play_Note(note->freq_hz, note->duration_ms);
+    robot.win_sound_notes_left--;
+
+    // This Tick is the note's first packet, so wait out the rest of the note and its pause.
+    uint32_t note_packets = ((uint32_t)note->duration_ms + note->pause_ms + KOBUKI_PACKET_MS - 1U) / KOBUKI_PACKET_MS;
+    robot.win_sound_wait_packets = (uint8_t)(note_packets - 1U);
+}
+
+void Win_Sound_Stop(void)
+{
+    robot.win_sound_notes_left = 0;
 }
 
 bool Corridor_Take_Wall_Hit(uint8_t bumper)

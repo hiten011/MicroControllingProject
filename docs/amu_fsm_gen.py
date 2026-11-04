@@ -303,6 +303,7 @@ plain("subtitle", 40, 52, 2200, 18,
 pseudo("start", "ellipse", 182, 124, 16, "#000000")
 state("idle", "1", 40, 180, 300, "IDLE", [
     "do / Kobuki_Drive(STOP)",
+    "     Win_Sound_Tick()",
     "exit / layout = none",
     "       object.detected = 0",
     "       heading = 0",
@@ -587,7 +588,7 @@ edge("e_rsample_align", "d_rsample", "d_align",
 # DISTANCE ADJUST: DISTANCE is the hub; IDLE leaves straight up, REVERSE sits to its right, APPROACH above REVERSE
 E_B, E_C = C1 + 230, C1 + 280                    # elbow lanes on DISTANCE's top edge, right of the IDLE line
 y_app1, y_app2 = yA - 18, yA + 18
-D_LBL = ["[400 <= deposit_range_mm", "<= 420]", "/ LED1 green"]
+D_LBL = ["[400 <= deposit_range_mm", "<= 420]", "/ LED1 green,", "Win_Sound_Start()"]
 edge("e_dist_idle", "d_dist", "idle", [(D_X, gy("d_dist")), (D_X, 320)],
      lines=D_LBL, seg=0, side="right", gap=8, at=lbl_right_of(D_X, 535, D_LBL))
 edge("e_dist_rev", "d_dist", "d_rev", [(C1R, yB - 16), (C2L, yB - 16)],
@@ -664,7 +665,8 @@ n3 = ("<b>Search phase</b><br>SEARCH turns anticlockwise on the spot from B0 and
       "Layout_From_Range(range_mm): B when range_mm &lt; 575, otherwise A. LED1 red for A, yellow for B. "
       "There is no centring: ORIENT turns from wherever SEARCH stopped.<br><br>"
       "<b>IDLE reset</b><br>Leaving IDLE (B0) clears layout, object.detected, heading and corridor, and "
-      "zeroes the scan with Scan_Start(). DEPOSIT restarts the same scan counter for its own full circle.<br><br>"
+      "zeroes the scan with Scan_Start(). It also cuts any win sound still playing with Win_Sound_Stop(). "
+      "DEPOSIT restarts the same scan counter for its own full circle.<br><br>"
       "<b>Calibration (layout split, detect range)</b><br>The split is a calibration value (575 mm now). "
       "IDENTIFY reads the first in-range reading, taken as the sonar beam first reaches the bollard, so "
       "calibrate the same way: turn the AMU anticlockwise onto B1, then onto A1, and read "
@@ -672,8 +674,8 @@ n3 = ("<b>Search phase</b><br>SEARCH turns anticlockwise on the spot from B0 and
       "above the A1 reading and below the nearest wall.")
 
 n4 = ("<b>Deposit</b><br>DEPOSIT turns anticlockwise through a full circle (scan_deg >= 360) at 50 mm/s and "
-      "keeps the closest valid echo (not 0, below 5000 mm) with its gyro heading. With no echo it lights LED1 "
-      "red and returns to IDLE.<br><br>"
+      "keeps the closest valid echo (not 0, at most DEPOSIT_SCAN_MAX_RANGE_MM; 5000 mm is no echo) with its "
+      "gyro heading. With no echo it lights LED1 red and returns to IDLE.<br><br>"
       "DEPOSIT_ALIGN turns the short way to the saved heading. The first time, within 100 ticks, it starts "
       "the refine sweep; once the heading is refined, within 50 ticks, it goes to DEPOSIT_DISTANCE.<br><br>"
       "The sweep visits 26 headings from -25 to +25 deg around the coarse heading, 2 deg apart. "
@@ -684,8 +686,9 @@ n4 = ("<b>Deposit</b><br>DEPOSIT turns anticlockwise through a full circle (scan
       "DEPOSIT_DISTANCE holds still for 15 Ticks (about 300 ms) so the 10 Hz sonar catches up, then reads "
       "deposit_range_mm against the target 410 mm +/- 10 mm: too close backs off in DEPOSIT_REVERSE until "
       "510 mm (a 100 mm margin) at 50 mm/s, too far creeps in DEPOSIT_APPROACH at 35 mm/s until 420 mm, so "
-      "the last correction is always made moving forward. Inside the band it lights LED1 green and returns "
-      "to IDLE; LED1 is yellow while adjusting.")
+      "the last correction is always made moving forward. Inside the band it lights LED1 green, starts the "
+      "win sound with Win_Sound_Start() and returns to IDLE, which sends one note per Tick with "
+      "Win_Sound_Tick(); LED1 is yellow while adjusting.")
 
 n5 = ("<b>Constants (Src/Helper/helper.h)</b><br>Scan: turn speed 150, give-up after a full turn of 360. "
       "Layout split 575 mm (B below, A otherwise). Orient A -75 / B +108. Pathfind: drive speed 150, reverse "
