@@ -48,13 +48,13 @@ def plain_text(v):
 # ------------------------------------------------------------ code side
 main_c = open(REPO + "/Src/main.c").read()
 loop = main_c[main_c.index("switch (state) {", main_c.index("int main")):]
-blocks = re.split(r"\n\s+case (ST_\w+):", loop)
+blocks = re.split(r"\n\s+case (STATE_\w+):", loop)
 code_edges, code_pred, code_specific, code_body = set(), {}, {}, {}
 for name, body in zip(blocks[1::2], blocks[2::2]):
     src = ID[name]
     code_body[src] = body
     for m in re.finditer(r"change_to\(([^;]*)\);", body):
-        for t in re.findall(r"\bST_\w+", m.group(1)):
+        for t in re.findall(r"\bSTATE_\w+", m.group(1)):
             code_edges.add((src, ID[t]))
     code_pred[src] = ("Fault_Any" if "Fault_Any()" in body
                       else "Fault_B1_Wheeldrop" if "Fault_B1_Wheeldrop()" in body else None)
@@ -62,7 +62,7 @@ for name, body in zip(blocks[1::2], blocks[2::2]):
     rest = re.sub(r"if \(Fault_\w+\(\)\) \{\s*change_to\(STATE_FAULT\);\s*break;\s*\}", "", body)
     code_specific[src] = "change_to(STATE_FAULT)" in rest
 
-states_enum = set(re.findall(r"\bST_\w+", main_c[:main_c.index("} State;")]))
+states_enum = set(re.findall(r"\bSTATE_\w+", main_c[:main_c.index("} State;")]))
 check(states_enum == set(ID), "ST_* enum == the %d States the diagram maps (%s)" % (len(ID), sorted(states_enum ^ set(ID))))
 check(len(blocks[1::2]) == len(ID), "main.c switch has %d State cases (found %d)" % (len(ID), len(blocks[1::2])))
 
@@ -243,9 +243,9 @@ def shown(fn, cid):
 
 
 entry_src = main_c[main_c.index("state = next;"):main_c.index("// Initialise the peripherals")]
-for m in re.finditer(r"((?:\s*case ST_\w+:)+)(.*?)break;", entry_src, re.S):
+for m in re.finditer(r"((?:\s*case STATE_\w+:)+)(.*?)break;", entry_src, re.S):
     calls = [f for f in re.findall(r"\b((?:Kobuki|Scan|Deposit)_\w+)\(", m.group(2)) if f not in IGNORED]
-    for name in re.findall(r"\bST_\w+", m.group(1)):
+    for name in re.findall(r"\bSTATE_\w+", m.group(1)):
         for fn in dict.fromkeys(calls):
             check("entry / " in body_of(ID[name]) and fn in body_of(ID[name]),
                   "%s entry calls %s() in its box" % (name, fn))
