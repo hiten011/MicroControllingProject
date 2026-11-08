@@ -115,7 +115,7 @@ void sim_event(const char *kind, const char *fmt, ...)
     vsnprintf(e->msg, sizeof e->msg, fmt, ap);
     va_end(ap);
     if (!cfg.quiet && (cfg.html >= 0)) {
-        int noisy = !strcmp(kind, "bump") || !strcmp(kind, "cliff");
+        int noisy = !strcmp(kind, "bump") || !strcmp(kind, "cliff") || !strcmp(kind, "note");
         if (!noisy || cfg.html == 2)
             printf("  t=%7.2fs  %-6s %s\n", rb.t_ms / 1000.0 - res[ti].t_b0 * (res[ti].t_b0 > 0), kind, e->msg);
     }
@@ -808,7 +808,7 @@ static void usage(void)
 "  --jobs N               parallel runs for --suite (default: CPU count)\n"
 "\n"
 "Sensor / robot model\n"
-"  --sensor-offset MM     ultrasonic distance in front of the robot centre (default 0 = at the centre)\n"
+"  --sensor-offset MM     ultrasonic position along the heading from the robot centre (default -133 = behind it)\n"
 "  --beam DEG             ultrasonic half-angle that still sees a 90 mm bollard (default 10)\n"
 "  --us-noise MM          ultrasonic noise, 1 sigma (default 3)\n"
 "  --us-latency MS        delay before a reading appears on the analogue pin (default 100)\n"
@@ -822,7 +822,7 @@ static void usage(void)
 "  --strict               stop if the UART/ADC drivers are misconfigured\n"
 "  --out DIR              output folder (default sim_out)\n"
 "  --no-html              skip the HTML replay\n"
-"  -v                     also print every bumper / cliff event\n"
+"  -v                     also print every bumper / cliff event and sound note\n"
 "  --quiet\n");
 }
 
@@ -856,7 +856,7 @@ int main(int argc, char **argv)
     cfg.b1_at_s        = -1.0;
     cfg.lift_at_s      = -1.0;
     cfg.lift_for_s     = 2.0;
-    cfg.sensor_offset  = 0.0;
+    cfg.sensor_offset  = SENSOR_OFFSET_DEFAULT;
     cfg.beam_half_deg  = 10.0;
     cfg.us_noise_mm    = 3.0;
     cfg.us_latency_ms  = 100.0;
@@ -940,7 +940,7 @@ int main(int argc, char **argv)
 #endif
 
     if (!cfg.quiet)
-        printf("Kobuki simulator  seed %u  (ultrasonic %.0f mm ahead of centre, +-%.0f deg beam)\n",
+        printf("Kobuki simulator  seed %u  (ultrasonic %+.0f mm from centre along heading, +-%.0f deg beam)\n",
                cfg.seed, cfg.sensor_offset, cfg.beam_half_deg);
 
     start_trial(0, 1);

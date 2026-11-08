@@ -18,7 +18,7 @@ make -C sim          # or: cd sim && make
 make -C sim A        # Layout A, heading 90, seed 1, verbose
 make -C sim B        # Layout B, heading 0, seed 1, verbose
 make -C sim check    # pathfind Reverse recovery check
-make -C sim check-deposit # mocked deposit loop: scan, refine alignment, adjust to the configured range
+make -C sim check-deposit # mocked deposit loop: scan, refine alignment, adjust to the configured range, win sound
 ```
 
 On Linux and macOS, with `gcc` on `PATH`, you can still call the script directly:
@@ -29,7 +29,7 @@ On Linux and macOS, with `gcc` on `PATH`, you can still call the script directly
 
 That writes `sim/kobuki_sim`. The script always passes `-DSIM_SHIM`.
 
-`check-deposit` builds its own temporary host test executable and does not need the arena simulator to run. It checks local beam centring, gyro wrap, lost echoes, median sampling and live distance adjustment with 10 Hz sonar, 100 ms publication latency, motor acceleration and bounded measurement noise. It exercises stops during refinement, reverse and approach. It also works on hosts where the arena simulator cannot map peripheral memory.
+`check-deposit` builds its own temporary host test executable and does not need the arena simulator to run. It checks local beam centring, gyro wrap, lost echoes, median sampling and live distance adjustment with 10 Hz sonar, 100 ms publication latency, motor acceleration and bounded measurement noise. It exercises stops during refinement, reverse and approach, and checks that the win sound plays on a successful deposit and in no other end state. It also works on hosts where the arena simulator cannot map peripheral memory.
 
 On Windows, `gcc` comes from MSYS2 UCRT64 (`C:\msys64\ucrt64\bin` on `PATH`).
 
@@ -69,7 +69,7 @@ in that folder, which links every replay.
 
 | Option | Default | What to set |
 |---|---|---|
-| `--sensor-offset MM` | 0 | Distance from the Kobuki centre to the ultrasonic's face, along the heading (0 = sensor at the centre, facing forward). **This changes every range reading.** |
+| `--sensor-offset MM` | -133 | Position of the ultrasonic's face along the heading, measured from the Kobuki centre (negative = behind the centre, 0 = at the centre). **This changes every range reading.** The default is what the firmware's calibration implies: it stops at `DEPOSIT_TARGET_RANGE_MM` (410 mm) from the sensor, and 410 = 100 mm gap + 177 mm body radius + 133 mm. The same offset puts the first echo from A1 near 683 mm and from B1 near 533 mm, either side of `LAYOUT_B_MAX_RANGE_MM` (575 mm). Re-derive it from the real mounting position if you move the sensor or retune either constant. |
 | `--beam DEG` | 10 | Half-angle at which a 90 mm bollard is still detected. Measure it by turning past a bollard. |
 | `--us-latency MS` | 100 | How late a reading appears on the analogue pin. |
 | `--gap-tol`, `--align-tol` | 25 mm, 5 deg | Pass bands for the deposit checks (the brief doesn't give any). |
@@ -101,6 +101,7 @@ in that folder, which links every replay.
   **Cliff sensors** (−50°, 0°, +50°, 165 mm out) fire past the platform edge.
   **Wheel drop** fires when the robot is lifted or a wheel goes over the
   ledge, which counts as falling off.
+- **Sound.** The Kobuki sound command (0x03) is checked and logged as `sound` (first note of a melody) and `note` (the rest, shown with `-v`) events, so the win sound after a deposit shows in the replay.
 - **MB1043.** Ranges at 10 Hz and reports the nearest echo in the cone: round
   objects anywhere in the beam, flat walls only where they're square to the
   sensor or at a corner. The storage unit's walls are below the sensor, so

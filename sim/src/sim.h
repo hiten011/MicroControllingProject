@@ -21,6 +21,14 @@
 #define LOOP_MS         20          /* feedback packet period (50 Hz)       */
 #define SPEED_LIMIT_MMS 150.0       /* brief: never exceed 150 mm/s         */
 
+/* Ultrasonic position implied by the firmware's calibration, mm along the
+ * heading from the Kobuki centre (negative = behind it). The firmware stops
+ * DEPOSIT_TARGET_RANGE_MM (410) from the sensor face to the rod, and Table 1
+ * wants a 100 mm gap from the body edge: 410 = 100 + ROBOT_R + 133. The same
+ * offset puts A1 at about 683 mm and B1 at about 533 mm on the first echo,
+ * either side of LAYOUT_B_MAX_RANGE_MM (575). Re-derive it if either changes. */
+#define SENSOR_OFFSET_DEFAULT (-133.0)
+
 /* ---- Arena (Figure 2) ----------------------------------------------- */
 #define PLAT_W          1600.0
 #define PLAT_H          1800.0

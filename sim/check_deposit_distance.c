@@ -28,7 +28,7 @@ static double gap, gyro, left_speed, right_speed, left_target, right_target;
 static double largest_gap;
 static double rod_heading = 9000.0;
 static uint16_t sonar, pending_sonar;
-static unsigned packets, reverse_commands, forward_commands, injected_at, finished_at;
+static unsigned packets, reverse_commands, forward_commands, injected_at, finished_at, notes_played;
 static Kobuki_LED_Enum led;
 static Injection injection;
 static State injection_state;
@@ -167,6 +167,12 @@ void Kobuki_Update_LEDs(Kobuki_LED_Enum first, Kobuki_LED_Enum second)
     led = first;
 }
 
+void Kobuki_Play_Note(uint16_t freq_hz, uint8_t duration_ms)
+{
+    assert(freq_hz != 0 && duration_ms != 0);
+    notes_played++;
+}
+
 uint16_t Ultrasonic_Read(void)
 {
     return sonar;
@@ -213,7 +219,7 @@ static void run(double initial_gap, Injection event, State event_state, bool noi
     gap = largest_gap = initial_gap;
     gyro = left_speed = right_speed = left_target = right_target = 0;
     sonar = pending_sonar = 5000;
-    packets = reverse_commands = forward_commands = injected_at = finished_at = 0;
+    packets = reverse_commands = forward_commands = injected_at = finished_at = notes_played = 0;
     led = OFF;
     injection = event;
     injection_state = event_state;
@@ -226,6 +232,8 @@ static void run(double initial_gap, Injection event, State event_state, bool noi
         assert(!"firmware loop returned");
     }
     assert(state == STATE_IDLE);
+    // The win sound starts when the deposit succeeds (green LED) and in no other end state.
+    assert((led == GREEN) == (notes_played > 0));
 }
 
 static void check_refine_samples(void)
