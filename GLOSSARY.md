@@ -26,7 +26,7 @@ The enclosed bay the parcel is delivered into, reached through a diagonal entran
 _Avoid_: the unit, freezer, storage (when the unit itself is meant)
 
 **Storage wall**:
-The outer wall of the storage unit that runs alongside the corridors. With Orient A = −90° / B = +90°, Layout A has it on the AMU's left and the ledge on its right; Layout B is the mirror image.
+The outer wall of the storage unit that runs alongside the corridors. With Orient A = −75° / B = +108°, Layout A has it on the AMU's left and the ledge on its right; Layout B is the mirror image.
 _Avoid_: unit wall, side wall
 
 **Entrance**:

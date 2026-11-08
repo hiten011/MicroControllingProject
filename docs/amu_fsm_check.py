@@ -20,7 +20,7 @@ import xml.etree.ElementTree as ET
 REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 DRAWIO = sys.argv[1] if len(sys.argv) > 1 else os.path.join(REPO, "docs", "amu_fsm.drawio")
 
-# ST_* enum name -> diagram cell id
+# STATE_* enum name -> diagram cell id
 ID = {
     "STATE_IDLE": "idle", "STATE_SEARCH": "search", "STATE_IDENTIFY": "identify", "STATE_ORIENT": "orient",
     "STATE_DRIVE": "p_drive", "STATE_REVERSE": "p_reverse", "STATE_ROTATE": "p_rotate",
@@ -63,7 +63,7 @@ for name, body in zip(blocks[1::2], blocks[2::2]):
     code_specific[src] = "change_to(STATE_FAULT)" in rest
 
 states_enum = set(re.findall(r"\bSTATE_\w+", main_c[:main_c.index("} State;")]))
-check(states_enum == set(ID), "ST_* enum == the %d States the diagram maps (%s)" % (len(ID), sorted(states_enum ^ set(ID))))
+check(states_enum == set(ID), "STATE_* enum == the %d States the diagram maps (%s)" % (len(ID), sorted(states_enum ^ set(ID))))
 check(len(blocks[1::2]) == len(ID), "main.c switch has %d State cases (found %d)" % (len(ID), len(blocks[1::2])))
 
 # ---------------------------------------------------------- diagram side
@@ -204,8 +204,8 @@ detect = re.search(r"ULTRASONIC_DETECT_RANGE_MM \(\(uint16_t\)(\d+)U\)", ultra).
 maxr = re.search(r"ULTRASONIC_MAX_RANGE_MM\s+\(\(uint16_t\)(\d+)U\)", ultra).group(1)
 check("range_mm < %s" % detect in text, "detect range %s appears" % detect)
 check("%s mm" % maxr in text, "maximum range %s mm appears (no echo)" % maxr)
-check(re.search(r"#define DEPOSIT_TEST_MODE 0", helper_h) is not None and "DEPOSIT_TEST_MODE" in text,
-      "DEPOSIT_TEST_MODE (default 0) is drawn")
+check("DEPOSIT_TEST_MODE" not in helper_h and "DEPOSIT_TEST_MODE" not in main_c and "DEPOSIT_TEST_MODE" not in text,
+      "DEPOSIT_TEST_MODE is gone from the code and is not drawn")
 b0, b1 = define("KOBUKI_BUTTON_B0_MASK"), define("KOBUKI_BUTTON_B1_MASK")
 check(b0 == 1 and "kobuki.button & 0x01" in text, "B0 = button & 0x01")
 check(b1 == 2 and "kobuki.button & 0x02" in text, "B1 = button & 0x02")
@@ -253,10 +253,17 @@ for name, body in zip(blocks[1::2], blocks[2::2]):
     for fn in dict.fromkeys(f for f in re.findall(r"\b((?:Kobuki|Scan|Deposit)_\w+)\(", body) if f not in IGNORED):
         check(shown(fn, ID[name]), "%s calls %s() in its box or edge labels" % (name, fn))
 
+# exit actions in change_to() must be written in the State's box
+exit_src = main_c[main_c.index("static void change_to"):main_c.index("state = next;")]
+for m in re.finditer(r"case (STATE_\w+):(.*?)break;", exit_src, re.S):
+    for fn in dict.fromkeys(re.findall(r"\b((?:Kobuki|Scan|Deposit|Win_Sound)_\w+)\(", m.group(2))):
+        check("exit / " in body_of(ID[m.group(1)]) and fn in body_of(ID[m.group(1)]),
+              "%s exit calls %s() in its box" % (m.group(1), fn))
+
 # stale names must be gone
 for stale in ["scan_sample()", "scan_give_up()", "Kobuki_Drive(100)", "Rotate(+100)", "A: -90", "B: +135", "1000 mm",
               "Kobuki_Drive(-100)", "SCAN_SPEED_MM_S", "SCAN_FULL_DEG", "LAYOUT_B_MAX_MM", "PATHFIND_ROTATE_",
-              "PATHFIND_CORNER_A", "ORIENT_A_DEG", "stub", "not built yet", "(stub"]:
+              "PATHFIND_CORNER_A", "ORIENT_A_DEG", "stub", "not built yet", "(stub", "ST_*", "!DEPOSIT_TEST_MODE"]:
     check(stale not in text, "stale text gone: %r" % stale)
 
 print()
