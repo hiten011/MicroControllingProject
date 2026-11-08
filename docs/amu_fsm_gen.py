@@ -295,20 +295,23 @@ BAR_Y, BAR_H = 440, 54
 
 plain("title", 40, 20, 900, 30, "<b>AMU parcel-run FSM</b>", size=20, color="#000000")
 plain("subtitle", 40, 52, 2200, 18,
-      "One box per State in the Src/main.c switch (the ST_* enum). UML state-machine notation: "
+      "One box per State in the Src/main.c switch (the STATE_* enum). UML state-machine notation: "
       "trigger [guard] / effect. Terms follow GLOSSARY.md. A / B is the Layout learned by IDENTIFY.",
       size=11, color="#555555")
 
 # ---- initial pseudo-state (top-left) and IDLE
 pseudo("start", "ellipse", 182, 124, 16, "#000000")
+IDLE_H = 154
+IDLE_BOTTOM = 180 + IDLE_H
 state("idle", "1", 40, 180, 300, "IDLE", [
     "do / Kobuki_Drive(STOP)",
     "     Win_Sound_Tick()",
-    "exit / layout = none",
+    "exit / Win_Sound_Stop()",
+    "       layout = none",
     "       object.detected = 0",
     "       heading = 0",
     "       corridor = 0",
-    "       Scan_Start(kobuki.angle)"], hgt=140)
+    "       Scan_Start(kobuki.angle)"], hgt=IDLE_H)
 
 # ---- SEARCH phase
 composite("search_phase", 520, 140, 790, 190, "SEARCH (phase)")
@@ -478,7 +481,7 @@ BAR_MID = BAR_Y + BAR_H / 2
 # main flow: start -> IDLE -> SEARCH -> IDENTIFY -> ORIENT -> DRIVE -> ...
 edge("e_start", "start", "idle", [(190, 140), (190, 180)])
 edge("e_idle_search", "idle", "search", [(340, ROW1), (550, ROW1)],
-     lines=["B0", "[kobuki.button & 0x01", "&& !DEPOSIT_TEST_MODE]"], seg=0, side="above")
+     lines=["B0", "[kobuki.button & 0x01]"], seg=0, side="above")
 edge("e_search_identify", "search", "identify", [(810, ROW1), (980, ROW1)],
      lines=["1: [object.detected != 0]"], seg=0, side="above")
 edge("e_identify_orient", "identify", "orient", [(1280, ROW1), (ORIENT_X, ROW1)],
@@ -560,15 +563,12 @@ edge("e_drivein_deposit_done", "drive_in", "deposit",
 edge("e_deposit_align", "deposit", "d_align", [(C1 + 210, gy("deposit")), (C1 + 210, bottom("d_align"))],
      lines=["[scan_deg >= 360,", "deposit_rod.detected]", "/ Kobuki_Drive(STOP)"], seg=0, side="left", gap=8)
 
-# DEPOSIT <-> IDLE lanes on the left margin: T goes down on the outer lane, N comes back up on the inner one
-LANE_T, LANE_N, JOG_Y = 60, 85, 590
+# DEPOSIT -> IDLE lane on the left margin (no echo in the full-circle scan)
+LANE_N, JOG_Y = 85, 590
 N_X, D_X = 250, 310
-yN, yT = yD - 24, yD + 24
-T_LBL = ["B0", "[kobuki.button & 0x01", "&& DEPOSIT_TEST_MODE]"]
+yN = yD - 24
 N_LBL = ["[scan_deg >= 360,", "!deposit_rod.detected]", "/ Kobuki_Drive(STOP),", "LED1 red"]
-edge("e_idle_deposit", "idle", "deposit", [(LANE_T, 320), (LANE_T, yT), (C1, yT)],
-     lines=T_LBL, seg=0, side="right", gap=8, at=lbl_right_of(LANE_T, 365, T_LBL))
-edge("e_deposit_idle", "deposit", "idle", [(C1, yN), (LANE_N, yN), (LANE_N, JOG_Y), (N_X, JOG_Y), (N_X, 320)],
+edge("e_deposit_idle", "deposit", "idle", [(C1, yN), (LANE_N, yN), (LANE_N, JOG_Y), (N_X, JOG_Y), (N_X, IDLE_BOTTOM)],
      lines=N_LBL, seg=3, side="left", gap=8, at=lbl_left_of(N_X, 450, N_LBL))
 
 edge("e_align_rturn", "d_align", "d_rturn", [(C1R, yC - 18), (C2L, yC - 18)],
@@ -589,7 +589,7 @@ edge("e_rsample_align", "d_rsample", "d_align",
 E_B, E_C = C1 + 230, C1 + 280                    # elbow lanes on DISTANCE's top edge, right of the IDLE line
 y_app1, y_app2 = yA - 18, yA + 18
 D_LBL = ["[400 <= deposit_range_mm", "<= 420]", "/ LED1 green,", "Win_Sound_Start()"]
-edge("e_dist_idle", "d_dist", "idle", [(D_X, gy("d_dist")), (D_X, 320)],
+edge("e_dist_idle", "d_dist", "idle", [(D_X, gy("d_dist")), (D_X, IDLE_BOTTOM)],
      lines=D_LBL, seg=0, side="right", gap=8, at=lbl_right_of(D_X, 535, D_LBL))
 edge("e_dist_rev", "d_dist", "d_rev", [(C1R, yB - 16), (C2L, yB - 16)],
      lines=["[deposit_range_mm", "< 400]"], seg=0, side="above")
@@ -639,10 +639,7 @@ n1 = ("<b>How to read it</b><br>A State is a rounded box: its name, then its act
       "kobuki.angle, latched when ORIENT completes and when CORRIDOR_TURN is left.<br><br>"
       "Setpoints (Kobuki_Rotate_Angle_Setpoint, Kobuki_Drive_Distance_Setpoint) are one-shot entry actions. "
       "kobuki.rotation_complete and kobuki.distance_complete are copied at the top of the Tick by "
-      "Kobuki_Read(), so a State sees them one Tick after its last do / call.<br><br>"
-      "<b>Build option</b><br>DEPOSIT_TEST_MODE is a build-time constant (default 0), so only one of the two B0 "
-      "edges out of IDLE exists in a given build. With it set to 1, the AMU also enters DEPOSIT once after the "
-      "first Kobuki packet at boot, for bench-testing Deposit on its own.")
+      "Kobuki_Read(), so a State sees them one Tick after its last do / call.")
 
 n2 = ("<b>Layouts</b><br>A / B is the Layout saved by IDENTIFY, never a live reading. Layout A: bollards A1/A2 "
       "block the left/top route; ORIENT turns clockwise to the bottom corridor; the storage wall is on the "
@@ -697,7 +694,7 @@ n5 = ("<b>Constants (Src/Helper/helper.h)</b><br>Scan: turn speed 150, give-up a
       "speed limit is 150 mm/s.<br><br>"
       "Deposit: scan speed 50, align tolerance 100 ticks, refine sweep +/-25 deg in 2 deg steps at 35 with a "
       "50 tick tolerance, 10 mm range band, 5 Ticks between readings, settle 15 Ticks, target 410 mm, "
-      "tolerance 10 mm, reverse margin 100 mm, reverse speed 50, approach speed 35. DEPOSIT_TEST_MODE 0.<br><br>"
+      "tolerance 10 mm, reverse margin 100 mm, reverse speed 50, approach speed 35.<br><br>"
       "<b>Helpers (Src/Helper/helper.c)</b><br>Layout_From_Range(range_mm) is the single split; "
       "Layout_Pick(a, b) picks a value by Layout. Scan_Sample() = Scan_Update_Turn(kobuki.angle) + "
       "Ultrasonic_Detect(&amp;object); Scan_Gave_Up() = scan_deg >= 360. Corridor_Take_Wall_Hit() and "
