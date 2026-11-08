@@ -413,8 +413,24 @@ static void handle_payload(const uint8_t *p, int len)
                 if (n != 2) sim_warn("k.gpo", "general purpose output sub-payload should be 2 bytes, got %d", n);
                 else rb.gpo = (uint16_t)(d[0] | (d[1] << 8));
                 break;
-            case 0x03: case 0x04: case 0x09: case 0x0D: case 0x0E:
-                break;                                  /* sound, gains... */
+            case 0x03:                                  /* sound: note, duration  */
+                if (n != 3) {
+                    sim_warn("k.snd", "sound sub-payload should be 3 bytes, got %d", n);
+                } else {
+                    unsigned note = (unsigned)(d[0] | (d[1] << 8));
+                    if (note == 0) sim_warn("k.snd0", "sound note of 0 sent to the Kobuki");
+                    else {
+                        /* One line per melody; the notes after the first show with -v. */
+                        static uint32_t last_ms;
+                        int first = last_ms == 0 || rb.t_ms - last_ms > 1000;
+                        last_ms = rb.t_ms;
+                        sim_event(first ? "sound" : "note", "%s%.0f Hz for %d ms", first ? "melody starts: " : "",
+                                  1.0 / (note * 0.00000275), d[2]);
+                    }
+                }
+                break;
+            case 0x04: case 0x09: case 0x0D: case 0x0E:
+                break;                                  /* gains, ... */
             default:
                 sim_warn("k.id", "unknown Kobuki command id 0x%02X", id);
         }

@@ -138,7 +138,7 @@ const SIM = /*__SIM_DATA__*/null;
   // ---- header ----
   const nP = TR.reduce((s, t) => s + t.n_pass, 0), nC = TR.reduce((s, t) => s + t.n_checks, 0);
   $('meta').textContent = TR.map(t => `Layout ${t.layout} / D${t.deposit}, start ${Math.round(t.heading)}°`).join('  →  ')
-    + `  ·  seed ${SIM.seed}  ·  sensor ${A.sensor_offset} mm ahead, ±${A.beam}° beam`;
+    + `  ·  seed ${SIM.seed}  ·  sensor ${A.sensor_offset} mm from centre (+ ahead), ±${A.beam}° beam`;
   $('score').innerHTML = `<span class="${nP === nC ? 'pass' : 'fail'}">${nP} / ${nC} checks pass</span>`;
 
   // ---- per-trial helpers ----
