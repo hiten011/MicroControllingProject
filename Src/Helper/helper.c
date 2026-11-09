@@ -24,8 +24,7 @@ bool Fault_B1_Wheeldrop(void) {
 }
 
 bool Fault_Any(void) {
-    return Fault_B1_Wheeldrop() || robot.kobuki.bumper != 0 ||
-           Kobuki_IsCliffDetected(&robot.kobuki, KOBUKI_SIDE_ALL_MASK);
+    return Fault_B1_Wheeldrop() || robot.kobuki.bumper != 0 || Kobuki_IsCliffDetected(&robot.kobuki, KOBUKI_SIDE_ALL_MASK);
 }
 
 // Classify the course layout from the ultrasonic distance measured during the initial scan.
