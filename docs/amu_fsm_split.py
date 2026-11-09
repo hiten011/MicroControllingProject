@@ -1,8 +1,10 @@
 #!/usr/bin/env python3
-"""Split the AMU FSM diagram into six compact, portrait PNGs that are easy to read and paste into a report (docs/fsm/*.png).
+"""Split the AMU FSM diagram into six compact, portrait SVGs that are easy to read and paste into a report (docs/fsm/*.svg).
+The SVGs are real vector graphics (plain <text>, no foreignObject, no dark-mode styles), so they import into
+Word, PowerPoint, LaTeX and Inkscape and never pixelate.
 
-Usage:  python3 docs/amu_fsm_split.py [--no-render] [--keep-drawio] [out_dir]
-        (default out_dir: docs/fsm; needs `node` + `playwright` for the PNGs, see docs/amu_fsm_render.js)
+Usage:  python3 docs/amu_fsm_split.py [--no-render] [--keep-drawio] [--png] [out_dir]
+        (default out_dir: docs/fsm; needs `node` + `playwright` for the SVGs; --png writes PNGs instead, see docs/amu_fsm_render.js)
 
 docs/amu_fsm.drawio stays the single source of truth. This script reads it and builds one smaller
 .drawio per view, re-using the real State boxes, bodies and edges with their exact text and
@@ -12,7 +14,7 @@ that cannot be copied are drawn here:
   * a dashed grey box is a State (or IDLE / STOP / FAULT) that lives in another picture; the edge
     that leaves the picture ends on it, with its original label;
   * a view that cuts through STORAGE or PATHFIND redraws that composite around the States it shows;
-  * 01_overview.png is drawn from scratch (phases only), because the full diagram has no such level;
+  * 01_overview is drawn from scratch (phases only), because the full diagram has no such level;
   * every view re-lays the States out in a tight, mostly vertical stack (the full diagram is one wide
     canvas), and routes the edges again with the same labels, so the pictures stay small when pasted.
 
@@ -523,8 +525,9 @@ def main():
         path = v.write()
         print("wrote", path)
         if RENDER_PNG:
-            png = path[:-len(".drawio")] + ".png"
-            subprocess.run(["node", RENDER, path, png, "2"], check=True)
+            ext = ".png" if "--png" in sys.argv else ".svg"
+            img = path[:-len(".drawio")] + ext
+            subprocess.run(["node", RENDER, path, img, "2"], check=True)
             if "--keep-drawio" not in sys.argv:
                 os.remove(path)
 
