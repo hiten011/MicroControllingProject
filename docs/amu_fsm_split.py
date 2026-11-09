@@ -1,8 +1,10 @@
 #!/usr/bin/env python3
-"""Split the AMU FSM diagram into six compact, portrait PNGs that are easy to read and paste into a report (docs/fsm/*.png).
+"""Split the AMU FSM diagram into four compact, portrait SVGs that are easy to read and paste into a report (docs/fsm/*.svg).
+The SVGs are real vector graphics (plain <text>, no foreignObject, no dark-mode styles), so they import into
+Word, PowerPoint, LaTeX and Inkscape and never pixelate.
 
-Usage:  python3 docs/amu_fsm_split.py [--no-render] [--keep-drawio] [out_dir]
-        (default out_dir: docs/fsm; needs `node` + `playwright` for the PNGs, see docs/amu_fsm_render.js)
+Usage:  python3 docs/amu_fsm_split.py [--no-render] [--keep-drawio] [--png] [out_dir]
+        (default out_dir: docs/fsm; needs `node` + `playwright` for the SVGs; --png writes PNGs instead, see docs/amu_fsm_render.js)
 
 docs/amu_fsm.drawio stays the single source of truth. This script reads it and builds one smaller
 .drawio per view, re-using the real State boxes, bodies and edges with their exact text and
@@ -12,12 +14,11 @@ that cannot be copied are drawn here:
   * a dashed grey box is a State (or IDLE / STOP / FAULT) that lives in another picture; the edge
     that leaves the picture ends on it, with its original label;
   * a view that cuts through STORAGE or PATHFIND redraws that composite around the States it shows;
-  * 01_overview.png is drawn from scratch (phases only), because the full diagram has no such level;
+  * 01_overview is drawn from scratch (phases only), because the full diagram has no such level;
   * every view re-lays the States out in a tight, mostly vertical stack (the full diagram is one wide
     canvas), and routes the edges again with the same labels, so the pictures stay small when pasted.
 
-The views:  01_overview  02_search_orient  03_pathfind  04_storage_entry_scan
-            05_storage_align_refine  06_storage_distance_adjust
+The views:  01_overview  02_search_orient  03_pathfind  04_storage
 """
 import copy
 import html
@@ -335,8 +336,8 @@ def overview():
        at=v.above(X + W, fx + fw / 2, yy, "ε (next Tick)"))
     v.note(40, ys[4] + H + 50, 960, 72,
            "<b>Detailed pictures</b>  02_search_orient: IDLE, SEARCH, IDENTIFY, ORIENT · 03_pathfind: DRIVE, REVERSE, ROTATE, "
-           "CORRIDOR_* · 04_storage_entry_scan: TURN, DRIVE_IN, DEPOSIT · 05_storage_align_refine: DEPOSIT_ALIGN, "
-           "DEPOSIT_REFINE_TURN / _SAMPLE · 06_storage_distance_adjust: DEPOSIT_DISTANCE / _REVERSE / _APPROACH.<br>"
+           "CORRIDOR_* · 04_storage: TURN, DRIVE_IN, DEPOSIT, DEPOSIT_ALIGN, DEPOSIT_REFINE_TURN / _SAMPLE, DEPOSIT_DISTANCE / "
+           "_REVERSE / _APPROACH.<br>"
            "<b>Faults</b>  B1 | wheeldrop leaves every State except IDLE and STOP / FAULT. STOP / FAULT stops the motors and "
            "returns to IDLE on the next Tick. PATHFIND and most of STORAGE expect bumpers and cliffs, so they fault on "
            "B1 | wheeldrop only; the three DISTANCE ADJUST States also fault on any bumper or cliff.")
@@ -351,7 +352,7 @@ def search_orient():
     X = 170                                   # main column x; boxes are centred on cx
     cx = X + 150
     v.ghost("g_dep", 120, 100, 190, 46, "DEPOSIT", "(STORAGE, picture 04)")
-    v.ghost("g_dd", 330, 100, 220, 46, "DEPOSIT_DISTANCE", "(STORAGE, picture 06)")
+    v.ghost("g_dd", 330, 100, 220, 46, "DEPOSIT_DISTANCE", "(STORAGE, picture 04)")
     v.raw("start")
     v.reg["start"] = (110, 319, 16, 16)
     v.boxes[-1].find("mxGeometry").set("x", "110")
@@ -422,109 +423,87 @@ def pathfind():
     return v
 
 
-# ================================================================================= 04 storage entry
-def storage_entry():
-    v = View("04_storage_entry_scan", "3a. Storage: drive in and scan for the rod",
-             "TURN, DRIVE_IN and DEPOSIT (the full-circle scan). Dashed grey boxes are States shown in other pictures; "
-             "red = fault.", 40, 20, 920)
-    X = 100
-    cx = X + 155
-    v.ghost("p_cstop", X, 100, 310, 54, "CORRIDOR_STOP", "(PATHFIND, picture 03)")
-    v.composite("storage", "storage", 40, 200, 600, 680)           # 200..880
-    v.state("turn", (X, 258))                                       # 258..352
-    v.state("drive_in", (X, 422))                                   # 422..516
-    v.state("deposit", (X, 626))                                    # 626..734
-    v.ghost("d_align", X, 804, 310, 46, "DEPOSIT_ALIGN", "(picture 05)")
-    v.ghost("g_idle", 830, 657, 180, 46, "IDLE", "(picture 02)")
-    v.ghost("g_fault", 830, 257, 180, 46, "STOP / FAULT", "(picture 01)", fault=True)
+# ================================================================================ 04 storage (all of it)
+def storage():
+    W = 1500
+    v = View("04_storage", "3. Storage: drive in, scan, align, refine and adjust the distance",
+             "The whole STORAGE phase in one picture: TURN, DRIVE_IN, DEPOSIT, DEPOSIT_ALIGN, the refine sweep "
+             "(DEPOSIT_REFINE_*) and DEPOSIT_DISTANCE with its reverse / approach States. Dashed grey boxes are States "
+             "shown in other pictures; red = fault.", 40, 20, W - 40)
+    LX, RX = 100, 620
+    cx = LX + 155
+    FX = 1290                                                      # the fault box, far right
+    v.ghost("p_cstop", LX, 100, 310, 54, "CORRIDOR_STOP", "(PATHFIND, picture 03)")
+    v.composite("storage", "storage", 40, 200, 950, 1330)          # 200..1530
+    v.state("turn", (LX, 258))                                     # 258..352
+    v.state("drive_in", (LX, 422))                                 # 422..516
+    v.state("deposit", (LX, 626))                                  # 626..734
+    v.state("d_align", (LX, 804))                                  # 804..912
+    v.state("d_rturn", (RX, 787))                                  # 787..881
+    v.state("d_rsample", (RX, 1001))                               # 1001..1123
+    v.composite("dist_group", "dist_group", 70, 1160, 890, 340)    # 1160..1500
+    v.state("d_app", (RX, 1218))                                   # 1218..1298
+    v.state("d_dist", (LX, 1310))                                  # 1310..1432
+    v.state("d_rev", (RX, 1390))                                   # 1390..1470
+    v.ghost("g_idle", 1060, 657, 180, 46, "IDLE", "(picture 02)")
+    v.ghost("g_idle2", LX, 1600, 310, 46, "IDLE", "(picture 02)")
+    v.ghost("g_fault", FX, 200, 180, 1330, "STOP / FAULT", "(picture 01)", fault=True)
+
+    # drive in and scan
     v.edge("p_stop_turn", "p_cstop", "turn", [(cx, 154), (cx, 258)], at=v.right(cx, 177, "ε"))
     v.edge("e_turn_drivein", "turn", "drive_in", [(cx, 352), (cx, 422)], at=v.right(cx, 387, val("e_turn_drivein")))
     v.edge("e_drivein_deposit_bump", "drive_in", "deposit", [(150, 516), (150, 626)],
            at=v.right(150, 571, val("e_drivein_deposit_bump")))
     v.edge("e_drivein_deposit_done", "drive_in", "deposit", [(360, 516), (360, 626)],
            at=v.right(360, 571, val("e_drivein_deposit_done")))
+    v.edge("e_deposit_idle", "deposit", "g_idle", [(LX + 310, 680), (1060, 680)],
+           at=v.above(LX + 310, 1060, 680, val("e_deposit_idle")))
+    # align and the refine sweep
     v.edge("e_deposit_align", "deposit", "d_align", [(cx, 734), (cx, 804)], at=v.right(cx, 769, val("e_deposit_align")))
-    v.edge("e_deposit_idle", "deposit", "g_idle", [(X + 310, 680), (830, 680)], at=v.above(650, 830, 680, val("e_deposit_idle")))
-    v.edge("f_storage", "storage", "g_fault", [(640, 280), (830, 280)], at=v.above(640, 830, 280, val("f_storage")))
-    v.note(40, 910, 970, 50,
-           "DEPOSIT turns anticlockwise through a full circle (scan_deg &gt;= 360) at 50 mm/s and keeps the closest valid echo "
-           "(not 0, at most DEPOSIT_SCAN_MAX_RANGE_MM) with its gyro heading. With no echo it lights LED1 red and returns to "
-           "IDLE. TURN ignores bumper and cliff; DRIVE_IN ignores the cliff, and any bumper ends it in DEPOSIT.")
-    return v
-
-
-# ============================================================================== 05 storage align/refine
-def storage_refine():
-    v = View("05_storage_align_refine", "3b. Storage: align to the rod and refine the heading",
-             "DEPOSIT_ALIGN and the refine sweep (DEPOSIT_REFINE_TURN / DEPOSIT_REFINE_SAMPLE). Dashed grey boxes are States "
-             "shown in other pictures; red = fault.", 40, 20, 1030)
-    LX, RX = 80, 640
-    v.ghost("g_fault", 640, 96, 400, 46, "STOP / FAULT", "(picture 01)", fault=True)
-    v.composite("storage", "storage", 40, 200, 1030, 533)           # 200..733
-    v.ghost_of("deposit", "(picture 04)", at=(LX, 258), h=46)       # 258..304
-    v.state("d_align", (LX, 384))                                   # 384..492
-    v.ghost_of("d_dist", "(DISTANCE ADJUST, picture 06)", at=(LX, 582), h=46)   # 582..628
-    v.state("d_rturn", (RX, 367))                                   # 367..461
-    v.state("d_rsample", (RX, 581))                                 # 581..703
-    v.edge("f_storage", "storage", "g_fault", [(700, 200), (700, 142)], at=v.right(700, 171, val("f_storage")))
-    v.edge("e_deposit_align", "deposit", "d_align", [(235, 304), (235, 384)], at=v.right(235, 344, val("e_deposit_align")))
-    v.edge("e_align_dist", "d_align", "d_dist", [(235, 492), (235, 582)], at=v.right(235, 537, val("e_align_dist")))
-    v.edge("e_align_rturn", "d_align", "d_rturn", [(LX + 310, 414), (RX, 414)], at=v.above(LX + 310, RX, 414, val("e_align_rturn")))
-    v.edge("e_rturn_rsample", "d_rturn", "d_rsample", [(910, 461), (910, 581)], at=v.right(910, 521, val("e_rturn_rsample")))
-    v.edge("e_rsample_rturn", "d_rsample", "d_rturn", [(700, 581), (700, 461)], at=v.right(700, 521, val("e_rsample_rturn")))
-    v.edge("e_rsample_align", "d_rsample", "d_align", [(RX, 642), (475, 642), (475, 469), (LX + 310, 469)],
-           at=v.right(475, 555, val("e_rsample_align")))
-    v.edge("f_sweep", "d_rsample", "g_fault", [(RX + 310, 670), (1020, 670), (1020, 142)], at=v.left(1020, 290, val("f_sweep")))
-    v.note(40, 760, 1030, 58,
-           "DEPOSIT_ALIGN turns the short way to the saved heading. The first time, within 100 ticks, it starts the refine "
-           "sweep; once the heading is refined, within 50 ticks, it goes to DEPOSIT_DISTANCE. The sweep visits 26 headings from "
-           "-25 to +25 deg around the coarse heading, 2 deg apart. DEPOSIT_REFINE_TURN turns to a step at 35 mm/s; "
-           "DEPOSIT_REFINE_SAMPLE stops, waits 15 Ticks, takes 3 readings 5 Ticks apart and keeps the median. After the last "
-           "step, the centre of the widest run of steps within 10 mm of the closest median becomes the heading (ties: nearest "
-           "the coarse heading). No valid median faults with LED1 red.")
-    return v
-
-
-# ============================================================================ 06 storage distance adjust
-def storage_distance():
-    v = View("06_storage_distance_adjust", "3c. Storage: adjust the distance to the rod",
-             "DEPOSIT_DISTANCE, DEPOSIT_REVERSE and DEPOSIT_APPROACH. Dashed grey boxes are States shown in other pictures; "
-             "red = fault.", 40, 20, 950)
-    LX, RX = 100, 620
-    v.ghost("g_fault", 400, 96, 560, 46, "STOP / FAULT", "(picture 01)", fault=True)
-    v.composite("storage", "storage", 40, 200, 950, 540)           # 200..740
-    v.ghost_of("d_align", "(picture 05)", at=(LX, 258), h=46)      # 258..304
-    v.composite("dist_group", "dist_group", 70, 370, 890, 340)     # 370..710
-    v.state("d_app", (RX, 428))                                    # 428..508
-    v.state("d_dist", (LX, 520))                                   # 520..642
-    v.state("d_rev", (RX, 600))                                    # 600..680
-    v.ghost("g_idle", LX, 810, 310, 46, "IDLE", "(picture 02)")
-    v.edge("f_dist_any", "dist_group", "g_fault", [(440, 370), (440, 142)], at=v.right(440, 173, val("f_dist_any")))
-    v.edge("f_dist_range", "dist_group", "g_fault", [(700, 370), (700, 142)], at=v.right(700, 173, val("f_dist_range")))
-    v.edge("f_storage", "storage", "g_fault", [(900, 200), (900, 142)], at=v.right(900, 173, val("f_storage")))
-    v.edge("e_align_dist", "d_align", "d_dist", [(200, 304), (200, 520)], at=v.right(200, 337, val("e_align_dist")))
-    v.edge("e_dist_app", "d_dist", "d_app", [(330, 520), (330, 455), (RX, 455)], at=v.above(330, RX, 455, val("e_dist_app")))
-    v.edge("e_app_dist", "d_app", "d_dist", [(RX, 490), (380, 490), (380, 520)], at=v.below(380, RX, 490, val("e_app_dist")))
-    v.edge("e_dist_rev", "d_dist", "d_rev", [(LX + 310, 620), (RX, 620)], at=v.above(LX + 310, RX, 620, val("e_dist_rev")))
-    v.edge("e_rev_dist", "d_rev", "d_dist", [(RX, 638), (LX + 310, 638)], at=v.below(LX + 310, RX, 638, val("e_rev_dist")))
-    v.edge("e_dist_idle", "d_dist", "g_idle", [(255, 642), (255, 810)], at=v.right(255, 676, val("e_dist_idle")))
-    v.note(40, 880, 950, 58,
-           "DEPOSIT_DISTANCE holds still for 15 Ticks (about 300 ms) so the 10 Hz sonar catches up, then reads deposit_range_mm "
-           "against the target 410 mm +/- 10 mm: too close backs off in DEPOSIT_REVERSE until 510 mm (a 100 mm margin) at "
-           "50 mm/s, too far creeps in DEPOSIT_APPROACH at 35 mm/s until 420 mm, so the last correction is always made moving "
-           "forward. Inside the band it lights LED1 green, starts the win sound and returns to IDLE. All three States also fault "
-           "on any bumper or cliff, or on a zero or maximum-range reading.")
+    v.edge("e_align_rturn", "d_align", "d_rturn", [(LX + 310, 834), (RX, 834)], at=v.above(LX + 310, RX, 834, val("e_align_rturn")))
+    v.edge("e_rturn_rsample", "d_rturn", "d_rsample", [(890, 881), (890, 1001)], at=v.right(890, 941, val("e_rturn_rsample")))
+    v.edge("e_rsample_rturn", "d_rsample", "d_rturn", [(680, 1001), (680, 881)], at=v.right(680, 941, val("e_rsample_rturn")))
+    v.edge("e_rsample_align", "d_rsample", "d_align", [(RX, 1062), (515, 1062), (515, 889), (LX + 310, 889)],
+           at=v.right(515, 975, val("e_rsample_align")))
+    # distance adjust
+    v.edge("e_align_dist", "d_align", "d_dist", [(200, 912), (200, 1310)], at=v.right(200, 1010, val("e_align_dist")))
+    v.edge("e_dist_app", "d_dist", "d_app", [(330, 1310), (330, 1245), (RX, 1245)], at=v.above(330, RX, 1245, val("e_dist_app")))
+    v.edge("e_app_dist", "d_app", "d_dist", [(RX, 1280), (380, 1280), (380, 1310)], at=v.below(380, RX, 1280, val("e_app_dist")))
+    v.edge("e_dist_rev", "d_dist", "d_rev", [(LX + 310, 1410), (RX, 1410)], at=v.above(LX + 310, RX, 1410, val("e_dist_rev")))
+    v.edge("e_rev_dist", "d_rev", "d_dist", [(RX, 1428), (LX + 310, 1428)], at=v.below(LX + 310, RX, 1428, val("e_rev_dist")))
+    v.edge("e_dist_idle", "d_dist", "g_idle2", [(255, 1432), (255, 1600)], at=v.right(255, 1500, val("e_dist_idle")))
+    # faults: everything leaves to the right, into the fault box
+    v.edge("f_storage", "storage", "g_fault", [(990, 240), (FX, 240)], at=v.above(990, FX, 240, val("f_storage")))
+    v.edge("f_sweep", "d_rsample", "g_fault", [(RX + 310, 1062), (FX, 1062)], at=v.above(RX + 310, FX, 1062, val("f_sweep")))
+    v.edge("f_dist_any", "dist_group", "g_fault", [(960, 1250), (FX, 1250)], at=v.above(960, FX, 1250, val("f_dist_any")))
+    v.edge("f_dist_range", "dist_group", "g_fault", [(960, 1370), (FX, 1370)], at=v.above(960, FX, 1370, val("f_dist_range")))
+    v.note(40, 1690, W - 80, 112,
+           "<b>Scan</b>  DEPOSIT turns anticlockwise through a full circle (scan_deg &gt;= 360) at 50 mm/s and keeps the closest "
+           "valid echo (not 0, at most DEPOSIT_SCAN_MAX_RANGE_MM) with its gyro heading. With no echo it lights LED1 red and "
+           "returns to IDLE. TURN ignores bumper and cliff; DRIVE_IN ignores the cliff, and any bumper ends it in DEPOSIT.<br>"
+           "<b>Align and refine</b>  DEPOSIT_ALIGN turns the short way to the saved heading. The first time, within 100 ticks, "
+           "it starts the refine sweep; once the heading is refined, within 50 ticks, it goes to DEPOSIT_DISTANCE. The sweep "
+           "visits 26 headings from -25 to +25 deg around the coarse heading, 2 deg apart. DEPOSIT_REFINE_TURN turns to a step "
+           "at 35 mm/s; DEPOSIT_REFINE_SAMPLE stops, waits 15 Ticks, takes 3 readings 5 Ticks apart and keeps the median. After "
+           "the last step, the centre of the widest run of steps within 10 mm of the closest median becomes the heading (ties: "
+           "nearest the coarse heading). No valid median faults with LED1 red.<br>"
+           "<b>Distance</b>  DEPOSIT_DISTANCE holds still for 15 Ticks (about 300 ms) so the 10 Hz sonar catches up, then reads "
+           "deposit_range_mm against the target 410 mm +/- 10 mm: too close backs off in DEPOSIT_REVERSE until 510 mm (a 100 mm "
+           "margin) at 50 mm/s, too far creeps in DEPOSIT_APPROACH at 35 mm/s until 420 mm, so the last correction is always "
+           "made moving forward. Inside the band it lights LED1 green, starts the win sound and returns to IDLE. All three "
+           "States also fault on any bumper or cliff, or on a zero or maximum-range reading.")
     return v
 
 
 def main():
-    views = [overview(), search_orient(), pathfind(), storage_entry(), storage_refine(), storage_distance()]
+    views = [overview(), search_orient(), pathfind(), storage()]
     for v in views:
         path = v.write()
         print("wrote", path)
         if RENDER_PNG:
-            png = path[:-len(".drawio")] + ".png"
-            subprocess.run(["node", RENDER, path, png, "2"], check=True)
+            ext = ".png" if "--png" in sys.argv else ".svg"
+            img = path[:-len(".drawio")] + ext
+            subprocess.run(["node", RENDER, path, img, "2"], check=True)
             if "--keep-drawio" not in sys.argv:
                 os.remove(path)
 
