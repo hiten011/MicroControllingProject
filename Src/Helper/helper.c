@@ -1,0 +1,324 @@
+#include "helper.h"
+
+// Shared run-time state.
+RobotData robot;
+
+// Fold an angle difference back into +-18000 ticks (the gyro wraps there), so the short way round is chosen.
+static int16_t angle_wrap(int32_t angle) {
+    if (angle > 18000) {
+        angle -= 36000;
+    } else if (angle < -18000) {
+        angle += 36000;
+    }
+    return (int16_t)angle;
+}
+
+// Signed shortest turn from current to target, in 0.01 degree ticks; positive is anticlockwise.
+static int16_t angle_turn(int16_t target, int16_t current) {
+    return angle_wrap((int32_t)target - current);
+}
+
+// Safety checks used by the FSM to stop the robot when a button, wheel drop, bumper, or cliff is detected.
+bool Fault_B1_Wheeldrop(void) {
+    return (robot.kobuki.button & KOBUKI_BUTTON_B1_MASK) != 0 || robot.kobuki.wheeldrop != 0;
+}
+
+bool Fault_Any(void) {
+    return Fault_B1_Wheeldrop() || robot.kobuki.bumper != 0 || Kobuki_IsCliffDetected(&robot.kobuki, KOBUKI_SIDE_ALL_MASK);
+}
+
+// Classify the course layout from the ultrasonic distance measured during the initial scan.
+Layout Layout_From_Range(uint16_t range_mm) {
+    if (range_mm < LAYOUT_B_MAX_RANGE_MM) {
+        return LAYOUT_B;
+    }
+    return LAYOUT_A;
+}
+
+// Select the movement angle appropriate for the detected layout. Very reusable function.
+int16_t Layout_Pick(int16_t a_deg, int16_t b_deg) {
+    return (robot.layout == LAYOUT_A) ? a_deg : b_deg;
+}
+
+// Reset the angle tracking used to measure a full rotation without losing gyro wraparound.
+void Scan_Start(int16_t angle_tick) {
+    robot.scan_prev_angle = angle_tick;
+    robot.scan_ticks = 0;
+    robot.scan_deg = 0;
+}
+
+void Scan_Update_Turn(int16_t angle_tick) {
+    int32_t diff = (int32_t)angle_tick - robot.scan_prev_angle;
+
+    // The gyro wraps at +-18000 ticks, so fold a jump of more than half a turn back.
+    if (diff > 18000) {
+        diff -= 36000;
+    } else if (diff < -18000) {
+        diff += 36000;
+    }
+    robot.scan_prev_angle = angle_tick;
+    robot.scan_ticks += diff;
+
+    // Round to the nearest degree (100 ticks per degree), away from zero.
+    if (robot.scan_ticks >= 0) {
+        robot.scan_deg = (int16_t)((robot.scan_ticks + 50) / 100);
+    } else {
+        robot.scan_deg = (int16_t)((robot.scan_ticks - 50) / 100);
+    }
+}
+
+// Track how far the robot has turned and update ultrasonic object detection.
+void Scan_Sample(void) {
+    Scan_Update_Turn(robot.kobuki.angle);
+    Ultrasonic_Detect(&robot.object);
+}
+
+// End the search if the robot has completed a full turn without finding a valid target.
+bool Scan_Gave_Up(void) {
+    return robot.scan_ticks >= (int32_t)SCAN_FULL_TURN_DEG * 100;
+}
+
+// Begin the deposit search and clear the closest-rod reading from any earlier attempt.
+void Deposit_Scan_Start(int16_t angle_tick) {
+    Scan_Start(angle_tick);
+    robot.deposit_rod.detected = 0;
+    robot.deposit_rod.range_mm = ULTRASONIC_MAX_RANGE_MM;
+    robot.deposit_rod_angle = angle_tick;
+    robot.deposit_range_mm = ULTRASONIC_MAX_RANGE_MM;
+    robot.deposit_settle_packets = 0;
+    robot.deposit_refined = false;
+}
+
+// During rotation, save the heading with the shortest valid ultrasonic distance to a rod.
+void Deposit_Scan_Sample(void) {
+    Scan_Update_Turn(robot.kobuki.angle);
+    uint16_t range_mm = Ultrasonic_Read();
+
+    // Zero is invalid, and anything beyond the scan cutoff is not the rod; the sensor's maximum range means no echo.
+    if (range_mm > 0 && range_mm <= DEPOSIT_SCAN_MAX_RANGE_MM && range_mm < robot.deposit_rod.range_mm) {
+        robot.deposit_rod.detected = 1;
+        robot.deposit_rod.range_mm = range_mm;
+        robot.deposit_rod_angle = robot.kobuki.angle;
+    }
+}
+
+// Calculate the shortest turn needed to face the rod found during the scan.
+int16_t Deposit_Rod_Turn_Ticks(void) {
+    return angle_turn(robot.deposit_rod_angle, robot.kobuki.angle);
+}
+
+// Prepare a finer angle sweep around the rod heading found by the initial scan.
+void Deposit_Refine_Start(void){
+    robot.deposit_refine = (DepositRefine){.base_angle = robot.deposit_rod_angle};
+    for (uint8_t i = 0; i < DEPOSIT_REFINE_POINTS; i++) {
+        robot.deposit_refine.ranges[i] = ULTRASONIC_MAX_RANGE_MM;
+    }
+    robot.deposit_refined = false;
+}
+
+// Find the turning error for the current point in the fine sweep.
+int16_t Deposit_Refine_Turn_Ticks(void) {
+    DepositRefine *refine = &robot.deposit_refine;
+    int32_t offset = (-DEPOSIT_REFINE_HALF_ANGLE_DEG + refine->point * DEPOSIT_REFINE_STEP_DEG) * 100;
+    return angle_turn(angle_wrap((int32_t)refine->base_angle + offset), robot.kobuki.angle);
+}
+
+// Allow sensor readings to stabilise after each change in direction.
+void Deposit_Refine_Settle(void) {
+    robot.deposit_refine.sample_count = 0;
+    robot.deposit_refine.wait_packets = DEPOSIT_SETTLE_PACKETS;
+}
+
+// Collect three readings at each sweep point and store the median to reduce noise.
+bool Deposit_Refine_Sample(void) {
+    // Create a pointer to the robot's stored fine-scan data for easier access.
+    DepositRefine *refine = &robot.deposit_refine;
+    if (refine->wait_packets > 0) {
+        refine->wait_packets--;
+        if (refine->wait_packets > 0) {
+            return false;
+        }
+    }
+    // Zero is invalid, so treat it like no echo.
+    uint16_t range = Ultrasonic_Read();
+    refine->readings[refine->sample_count++] = (range > 0) ? range : ULTRASONIC_MAX_RANGE_MM;
+    if (refine->sample_count < 3) {
+        refine->wait_packets = DEPOSIT_REFINE_SAMPLE_PACKETS;
+        return false;
+    }
+    // Sort just these three readings; one bad/noisy echo cannot choose the heading by itself.
+    for (uint8_t i = 0; i < 2; i++) {
+        for (uint8_t j = i + 1; j < 3; j++) {
+            if (refine->readings[j] < refine->readings[i]) {
+                uint16_t temp = refine->readings[i];
+                refine->readings[i] = refine->readings[j];
+                refine->readings[j] = temp;
+            }
+        }
+    }
+    // Saves the middle of the three sorted readings to reduce sensor noise and increase the accuracy of the readings.
+    refine->ranges[refine->point] = refine->readings[1];
+    // Save the robot's current angle alongside that distance for later alignment.
+    refine->angles[refine->point] = robot.kobuki.angle;
+    return true;
+}
+
+// Advance to the next fine-sweep angle, or signal that the sweep is complete.
+bool Deposit_Refine_Next(void) {
+    robot.deposit_refine.point++;
+    return robot.deposit_refine.point < DEPOSIT_REFINE_POINTS;
+}
+
+// Choose the centre of the strongest nearby group of readings as the refined rod heading. This would stored distance and angle readings from the fine scan.
+bool Deposit_Refine_Finish(void) {
+    //Use the distance and angle readings saved during the fine scan.
+    DepositRefine *refine = &robot.deposit_refine;
+    uint16_t minimum = ULTRASONIC_MAX_RANGE_MM;    // Finds the smallest valid distance measured during the scan.
+    for (uint8_t i = 0; i < DEPOSIT_REFINE_POINTS; i++) {
+        if (refine->ranges[i] < minimum) {
+            minimum = refine->ranges[i];
+        }
+    }
+    if (minimum == ULTRASONIC_MAX_RANGE_MM) {
+        return false; // No object  detected thus alignment has failed.
+    }
+
+    // Find the widest run of steps within the band of the minimum, selecting the one nearest the coarse heading.
+    uint8_t best_count = 0;
+    int16_t best_angle = refine->base_angle;
+    int32_t best_offset = 36000;
+    // This goes through each scan point to find groups of similar distance readings.
+    for (uint8_t i = 0; i < DEPOSIT_REFINE_POINTS;) {
+        if (refine->ranges[i] >= ULTRASONIC_MAX_RANGE_MM || refine->ranges[i] > minimum + DEPOSIT_REFINE_RANGE_BAND_MM) {
+            i++;
+            continue;
+        }
+        uint8_t first = i;
+        // Continue through the scan while the readings remain within the allowed distance range.
+        do {
+            i++;
+        } while (i < DEPOSIT_REFINE_POINTS && refine->ranges[i] < ULTRASONIC_MAX_RANGE_MM && refine->ranges[i] <= minimum + DEPOSIT_REFINE_RANGE_BAND_MM);
+
+        uint8_t count = i - first;
+        int16_t span = angle_turn(refine->angles[i - 1], refine->angles[first]);
+        // Find the centre angle of the group for better alignment.
+        int16_t centre = angle_wrap((int32_t)refine->angles[first] + span / 2);
+        // This calculates ongle offset from the original scan angle.
+        int32_t offset = angle_turn(centre, refine->base_angle);
+
+        if (offset < 0) { // Convert the angle difference to a positive value for comparison.
+            offset = -offset;
+        }
+        // Choose the group with the most consecutive valid readings. If two groups have the same number of readings, choose the one closest to the original scan angle.
+        if (count > best_count || (count == best_count && offset < best_offset)) {
+            best_count = count;
+            best_angle = centre;
+            best_offset = offset;
+        }
+    }
+    // This saves the minimum distance and the selected centre angle.
+    robot.deposit_rod.range_mm = minimum; 
+    robot.deposit_rod_angle = best_angle;
+    robot.deposit_refined = true; // alignment refinement is successfull.
+    return true;
+}
+
+// Read the current distance to the deposit and reject invalid or missing echoes.
+bool Deposit_Read_Range(void) {
+    robot.deposit_range_mm = Ultrasonic_Read();
+    return robot.deposit_range_mm > 0 && robot.deposit_range_mm < ULTRASONIC_MAX_RANGE_MM;
+}
+
+// One note of the win sound: its pitch, how long it sounds, and the silence before the next note.
+typedef struct {
+    uint16_t freq_hz;
+    uint8_t duration_ms;
+    uint8_t pause_ms;
+} WinSoundNote;
+
+// Pitches in Hz. They are high because a small piezo buzzer is loudest at about 2 to 4 kHz.
+#define NOTE_D_FLAT_7 2217U
+#define NOTE_E_FLAT_7 2489U
+#define NOTE_F_7      2794U
+#define NOTE_A_7      3520U
+#define NOTE_C_8      4186U
+
+// A victory fanfare of 3 s: three beeps and a long note, a short step up to a second long note, a rising run, then a
+// long high finish. The Kobuki plays at most 255 ms per note, so a long note is several notes of the same pitch with
+// no pause between them. Every duration and pause is a multiple of KOBUKI_PACKET_MS, so each note starts on a packet,
+// and no note is cut off by the next one.
+static const WinSoundNote win_sound[] = {
+    {NOTE_F_7, 100, 60},      // beep
+    {NOTE_F_7, 100, 60},      // beep
+    {NOTE_F_7, 100, 60},      // beep
+    {NOTE_F_7, 240, 0},       // yahh, held
+    {NOTE_F_7, 240, 80},      //
+    {NOTE_D_FLAT_7, 120, 0},  // step up
+    {NOTE_E_FLAT_7, 120, 0},  //
+    {NOTE_F_7, 240, 0},       // second yahh, held
+    {NOTE_F_7, 240, 40},      //
+    {NOTE_F_7, 100, 0},       // rising run
+    {NOTE_A_7, 100, 0},       //
+    {NOTE_C_8, 100, 0},       //
+    {NOTE_C_8, 240, 0},       // high finish, held
+    {NOTE_C_8, 240, 0},       //
+    {NOTE_C_8, 240, 0},       //
+    {NOTE_C_8, 180, 0},       //
+};
+
+#define WIN_SOUND_NOTES ((uint8_t)(sizeof(win_sound) / sizeof(win_sound[0])))
+
+// Start the non-blocking success melody played after completing the task.
+void Win_Sound_Start(void) {
+    robot.win_sound_notes_left = WIN_SOUND_NOTES;
+    robot.win_sound_wait_packets = 0;
+}
+
+// Play the next note when its packet-based delay expires, without pausing robot updates.
+void Win_Sound_Tick(void) {
+    if (robot.win_sound_notes_left == 0) {
+        return;
+    }
+    if (robot.win_sound_wait_packets > 0) {
+        robot.win_sound_wait_packets--;
+        return;
+    }
+
+    const WinSoundNote *note = &win_sound[WIN_SOUND_NOTES - robot.win_sound_notes_left];
+    Kobuki_Play_Note(note->freq_hz, note->duration_ms);
+    robot.win_sound_notes_left--;
+
+    // This Tick is the note's first packet, so wait out the rest of the note and its pause.
+    uint32_t note_packets = ((uint32_t)note->duration_ms + note->pause_ms + KOBUKI_PACKET_MS - 1U) / KOBUKI_PACKET_MS;
+    robot.win_sound_wait_packets = (uint8_t)(note_packets - 1U);
+}
+
+// Cancel any notes that remain in the success melody.
+void Win_Sound_Stop(void) {
+    robot.win_sound_notes_left = 0;
+}
+
+// If the bumper touches the expected wall side, prepare a small corrective turn.
+bool Corridor_Take_Wall_Hit(uint8_t bumper) {
+    // The storage wall is on the left in Layout A and on the right in Layout B.
+    uint8_t wall_mask = (robot.layout == LAYOUT_A) ? KOBUKI_SIDE_LEFT_MASK : KOBUKI_SIDE_RIGHT_MASK;
+
+    if ((bumper & wall_mask) == 0) {
+        return false;
+    }
+    robot.pathfind_recover_deg = Layout_Pick(PATHFIND_RECOVER_TURN_LAYOUT_A_DEG, PATHFIND_RECOVER_TURN_LAYOUT_B_DEG);
+    return true;
+}
+
+// If a side cliff sensor detects the expected ledge, steer back towards the corridor.
+bool Corridor_Take_Ledge_Hit(const Kobuki_Typedef *kobuki) {
+    // The ledge is on the right in Layout A and on the left in Layout B.
+    uint8_t ledge_mask = (robot.layout == LAYOUT_A) ? KOBUKI_SIDE_RIGHT_MASK : KOBUKI_SIDE_LEFT_MASK;
+
+    if (!Kobuki_IsCliffDetected(kobuki, ledge_mask)) {
+        return false;
+    }
+    robot.pathfind_recover_deg =
+        (int16_t)(-Layout_Pick(PATHFIND_RECOVER_TURN_LAYOUT_A_DEG, PATHFIND_RECOVER_TURN_LAYOUT_B_DEG));
+    return true;
+}
