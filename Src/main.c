@@ -2,35 +2,34 @@
 #include "adc.h"
 #include "helper.h"
 
-// The AMU's finite-state-machine states, grouped by phase.
+// The finite-state-machine states, grouped by phase.
 typedef enum {
-    STATE_IDLE,
+    STATE_IDLE,  // Wait for B0 to start a run.
 
     // SEARCH phase
-    STATE_SEARCH,
-    STATE_IDENTIFY,
-
-    STATE_ORIENT,
+    STATE_SEARCH,    // Spin until a bollard is found or a full turn is complete.
+    STATE_IDENTIFY,  // Use the bollard range to choose layout A or B.
+    STATE_ORIENT,    // Turn to face the first corridor.
 
     // PATHFIND phase
-    STATE_DRIVE,
-    STATE_REVERSE,
-    STATE_ROTATE,
-    STATE_CORRIDOR_REVERSE,
-    STATE_CORRIDOR_TURN,
-    STATE_CORRIDOR_STOP,
+    STATE_DRIVE,             // Follow the corridor while checking for walls and ledges.
+    STATE_REVERSE,           // Back away from a wall or side ledge.
+    STATE_ROTATE,            // Turn away from the hit before driving again.
+    STATE_CORRIDOR_REVERSE,  // Back away from the cliff at the end of the first corridor.
+    STATE_CORRIDOR_TURN,     // Turn the corner into the second corridor.
+    STATE_CORRIDOR_STOP,     // Stop at the end of the second corridor.
 
     // STORAGE phase
-    STATE_TURN,
-    STATE_DRIVE_IN,
-    STATE_DEPOSIT,
-    STATE_DEPOSIT_ALIGN,
-    STATE_DEPOSIT_REFINE_TURN,
-    STATE_DEPOSIT_REFINE_SAMPLE,
-    STATE_DEPOSIT_DISTANCE,
-    STATE_DEPOSIT_REVERSE,
-    STATE_DEPOSIT_APPROACH,
-    STATE_FAULT
+    STATE_TURN,                   // Face the storage unit.
+    STATE_DRIVE_IN,               // Drive into the unit until the set distance or bumper contact.
+    STATE_DEPOSIT,                // Scan a full circle for the closest valid deposit target.
+    STATE_DEPOSIT_ALIGN,          // Face the target heading saved by the coarse or fine scan.
+    STATE_DEPOSIT_REFINE_TURN,    // Turn to the next angle in the fine scan.
+    STATE_DEPOSIT_REFINE_SAMPLE,  // Stop and collect three range readings at this angle.
+    STATE_DEPOSIT_DISTANCE,       // Let the sensor settle, then check the distance to the target.
+    STATE_DEPOSIT_REVERSE,        // Back off far enough to make the final approach forwards.
+    STATE_DEPOSIT_APPROACH,       // Creep forwards until the range is within tolerance.
+    STATE_FAULT                   // Stop the motors and return to idle.
 } State;
 
 // Current state, only changed through change_to().
@@ -61,6 +60,7 @@ static void change_to(State next)
 
     state = next;
 
+    // Set movement targets once on entry; the main loop follows them on each packet.
     switch (next) {
         case STATE_IDENTIFY:
         case STATE_CORRIDOR_STOP:
@@ -86,8 +86,7 @@ static void change_to(State next)
             break;
 
         case STATE_ORIENT:
-            Kobuki_Rotate_Angle_Setpoint(robot.kobuki.angle,
-                                         Layout_Pick(ORIENT_TURN_LAYOUT_A_DEG, ORIENT_TURN_LAYOUT_B_DEG));
+            Kobuki_Rotate_Angle_Setpoint(robot.kobuki.angle, Layout_Pick(ORIENT_TURN_LAYOUT_A_DEG, ORIENT_TURN_LAYOUT_B_DEG));
             break;
 
         case STATE_REVERSE:
@@ -105,8 +104,7 @@ static void change_to(State next)
             break;
 
         case STATE_TURN:
-            Kobuki_Rotate_Angle_Setpoint(robot.kobuki.angle,
-                                         Layout_Pick(STORAGE_TURN_LAYOUT_A_DEG, STORAGE_TURN_LAYOUT_B_DEG));
+            Kobuki_Rotate_Angle_Setpoint(robot.kobuki.angle, Layout_Pick(STORAGE_TURN_LAYOUT_A_DEG, STORAGE_TURN_LAYOUT_B_DEG));
             break;
 
         case STATE_DRIVE_IN:
@@ -119,8 +117,7 @@ static void change_to(State next)
 }
 
 // Initialise the peripherals, then run one state step per received Kobuki packet.
-int main(void)
-{
+int main(void) {
     UART_Init();
     ADC_Init();
     Ultrasonic_Init();
@@ -191,6 +188,7 @@ int main(void)
                     change_to(STATE_FAULT);
                     break;
                 }
+                // The centre cliff marks the corridor end, so handle it before side hits.
                 if (Kobuki_IsCliffDetected(&robot.kobuki, KOBUKI_SIDE_CENTRE_MASK)) {
                     change_to((robot.corridor == 1) ? STATE_CORRIDOR_REVERSE : STATE_CORRIDOR_STOP);
                     break;
@@ -306,6 +304,8 @@ int main(void)
                     break;
                 }
                 Deposit_Scan_Sample();
+
+                // Finish the full sweep before choosing a target, even if one was found early.
                 if (Scan_Gave_Up()) {
                     Kobuki_Drive(STOP);
                     if (robot.deposit_rod.detected) {
@@ -326,6 +326,8 @@ int main(void)
                     change_to(STATE_FAULT);
                     break;
                 }
+
+                // Both the error and tolerance use gyro ticks (0.01 degrees).
                 int16_t turn = Deposit_Rod_Turn_Ticks();
                 int16_t tolerance =
                     robot.deposit_refined ? DEPOSIT_REFINE_TOLERANCE_TICKS : DEPOSIT_ALIGN_TOLERANCE_TICKS;
@@ -366,6 +368,7 @@ int main(void)
                     break;
                 }
                 Kobuki_Drive(STOP);
+                // Stay at this angle until the settling delay and all three readings are done.
                 if (!Deposit_Refine_Sample()) {
                     break;
                 }
@@ -385,6 +388,8 @@ int main(void)
                     change_to(STATE_FAULT);
                     break;
                 }
+
+                // This delay counts incoming Kobuki packets, not milliseconds.
                 if (robot.deposit_settle_packets > 0) {
                     robot.deposit_settle_packets--;
                     Kobuki_Drive(STOP);
@@ -436,6 +441,7 @@ int main(void)
                     break;
                 }
                 if (robot.deposit_range_mm <= DEPOSIT_TARGET_RANGE_MM + DEPOSIT_RANGE_TOLERANCE_MM) {
+                    // Stop and recheck the range before accepting the final position.
                     change_to(STATE_DEPOSIT_DISTANCE);
                     break;
                 }
