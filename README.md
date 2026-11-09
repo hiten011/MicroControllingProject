@@ -29,9 +29,7 @@ The full diagram is dense, so it is also split into smaller pictures, one per pa
 | [`01_overview`](docs/fsm/01_overview.svg) | The phases only, and the fault path |
 | [`02_search_orient`](docs/fsm/02_search_orient.svg) | IDLE, SEARCH, IDENTIFY, ORIENT |
 | [`03_pathfind`](docs/fsm/03_pathfind.svg) | DRIVE, REVERSE, ROTATE, CORRIDOR_* |
-| [`04_storage_entry_scan`](docs/fsm/04_storage_entry_scan.svg) | TURN, DRIVE_IN, DEPOSIT |
-| [`05_storage_align_refine`](docs/fsm/05_storage_align_refine.svg) | DEPOSIT_ALIGN, DEPOSIT_REFINE_TURN / _SAMPLE |
-| [`06_storage_distance_adjust`](docs/fsm/06_storage_distance_adjust.svg) | DEPOSIT_DISTANCE, DEPOSIT_REVERSE, DEPOSIT_APPROACH |
+| [`04_storage`](docs/fsm/04_storage.svg) | All of STORAGE: TURN, DRIVE_IN, DEPOSIT, DEPOSIT_ALIGN, DEPOSIT_REFINE_TURN / _SAMPLE, DEPOSIT_DISTANCE, DEPOSIT_REVERSE, DEPOSIT_APPROACH |
 
 Pathfind recovery is **Drive → Reverse (−50 mm) → Rotate (wall hit: A −5° / B +5°, ledge cliff: the opposite) → Drive**. There is no Realign, Wall hit, or Ledge hit state.
 
@@ -55,7 +53,7 @@ Inspect `robot.deposit_rod.detected`, `robot.deposit_rod.range_mm` and `robot.de
 | [`docs/pathfind.md`](docs/pathfind.md) | Pathfind states and how Drive / Reverse / Rotate work |
 | [`docs/amu_fsm.drawio`](docs/amu_fsm.drawio) | Full AMU FSM diagram (edit in diagrams.net) |
 | [`docs/amu_fsm_preview.png`](docs/amu_fsm_preview.png) | PNG preview of that diagram (export at 200 % after editing the `.drawio`) |
-| [`docs/fsm/`](docs/fsm) | The same FSM split into six smaller SVGs; rebuilt from the `.drawio` with `python3 docs/amu_fsm_split.py` |
+| [`docs/fsm/`](docs/fsm) | The same FSM split into four smaller SVGs; rebuilt from the `.drawio` with `python3 docs/amu_fsm_split.py` |
 | [`sim/README.md`](sim/README.md) | PC simulator that runs this firmware against a simulated Kobuki, ultrasonic sensor and arena |
 
 ## Source layout
